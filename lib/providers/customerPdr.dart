@@ -2,7 +2,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http show get;
+import 'package:http/http.dart' as http show get, post;
 import 'package:tazto/customer/models/addressMdl.dart';
 import 'package:tazto/customer/models/categoryMdl.dart';
 import 'package:tazto/customer/models/userMdl.dart';
@@ -67,23 +67,33 @@ class CustomerProvider with ChangeNotifier {
     _productsError = null;
     notifyListeners();
 
-    final uri = Uri.parse('https://fakestoreapi.com/products');
+    final uri = Uri.parse(
+        'https://backendlinc.up.railway.app/api/products/getProducts'
+    );
+
     try {
-      final resp = await http.get(uri);
+      final resp = await http.post(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({}), // send an empty JSON object
+      );
+
       if (resp.statusCode == 200) {
         final List<dynamic> list = jsonDecode(resp.body) as List<dynamic>;
-        _products =
-            list.map((e) => Product.fromJson(e as Map<String, dynamic>)).toList();
+        _products = list
+            .map((e) => Product.fromJson(e as Map<String, dynamic>))
+            .toList();
       } else {
         _productsError = 'Server error: ${resp.statusCode}';
       }
     } catch (e) {
-      _productsError = 'Network error';
+      _productsError = 'Network error: $e';
     } finally {
       _isLoadingProducts = false;
       notifyListeners();
     }
   }
+
 
   // Cart operations
   void addToCart(Product prod) {

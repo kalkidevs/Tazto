@@ -8,6 +8,45 @@ import 'package:tazto/customer/models/productMdl.dart';
 
 import '../../providers/customerPdr.dart';
 
+// Helper function to get category-based icons
+IconData _getCategoryIcon(String category) {
+  switch (category.toLowerCase()) {
+    case 'mobile':
+    case 'phone':
+      return Icons.smartphone;
+    case 'electronics':
+    case 'electronic':
+      return Icons.devices;
+    case 'clothing':
+    case 'clothes':
+    case 'fashion':
+      return Icons.shopping_bag;
+    case 'books':
+    case 'book':
+      return Icons.menu_book;
+    case 'home':
+    case 'furniture':
+      return Icons.home;
+    case 'sports':
+    case 'fitness':
+      return Icons.fitness_center;
+    case 'food':
+    case 'grocery':
+      return Icons.restaurant;
+    case 'beauty':
+    case 'cosmetics':
+      return Icons.face;
+    case 'toys':
+    case 'games':
+      return Icons.toys;
+    case 'automotive':
+    case 'car':
+      return Icons.directions_car;
+    default:
+      return Icons.shopping_cart;
+  }
+}
+
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
@@ -69,22 +108,22 @@ class HomePage extends StatelessWidget {
         SliverPersistentHeader(pinned: true, delegate: _SearchBarDelegate()),
 
         // 3) Categories horizontal list
-        if (categories.isNotEmpty)
-          SliverToBoxAdapter(
-            child: SizedBox(
-              height: 96,
-              child: ListView.separated(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
-                scrollDirection: Axis.horizontal,
-                separatorBuilder: (_, __) => const SizedBox(width: 12),
-                itemCount: categories.length,
-                itemBuilder: (_, i) => _CategoryTile(category: categories[i]),
-              ),
-            ),
-          ),
+        // if (categories.isNotEmpty)
+        //   SliverToBoxAdapter(
+        //     child: SizedBox(
+        //       height: 96,
+        //       child: ListView.separated(
+        //         padding: const EdgeInsets.symmetric(
+        //           horizontal: 16,
+        //           vertical: 8,
+        //         ),
+        //         scrollDirection: Axis.horizontal,
+        //         separatorBuilder: (_, __) => const SizedBox(width: 12),
+        //         itemCount: categories.length,
+        //         itemBuilder: (_, i) => _CategoryTile(category: categories[i]),
+        //       ),
+        //     ),
+        //   ),
 
         // 4) Banner carousel from real product images
         if (banners.isNotEmpty)
@@ -100,9 +139,45 @@ class HomePage extends StatelessWidget {
                     margin: const EdgeInsets.symmetric(horizontal: 8),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(12),
-                      image: DecorationImage(
-                        image: NetworkImage(p.image),
-                        fit: BoxFit.cover,
+                      gradient: LinearGradient(
+                        colors: [
+                          Theme.of(context).colorScheme.primary.withOpacity(0.7),
+                          Theme.of(context).colorScheme.secondary.withOpacity(0.7),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                    ),
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            _getCategoryIcon(p.category),
+                            size: 48,
+                            color: Colors.white,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            p.title,
+                            textAlign: TextAlign.center,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.poppins(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
+                          Text(
+                            '₹${p.price.toStringAsFixed(0)}',
+                            style: GoogleFonts.poppins(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   );
@@ -227,12 +302,27 @@ class _ProductCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // image
+          // icon based on category
           Expanded(
-            child: Image.network(
-              product.image,
+            child: Container(
               width: double.infinity,
-              fit: BoxFit.cover,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                    Theme.of(context).colorScheme.secondary.withOpacity(0.1),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: Center(
+                child: Icon(
+                  _getCategoryIcon(product.category),
+                  size: 64,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
             ),
           ),
 
@@ -256,7 +346,7 @@ class _ProductCard extends StatelessWidget {
             child: Row(
               children: [
                 Text(
-                  '\$${product.price.toStringAsFixed(2)}',
+                  '₹${product.price.toStringAsFixed(0)}',
                   style: GoogleFonts.poppins(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,

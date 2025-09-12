@@ -15,12 +15,7 @@ class RegisterProvider with ChangeNotifier {
 
   Future<bool> register({
     required String name,
-    required String username,
     required String email,
-    required String address,
-    required String city,
-    required String state,
-    required String pincode,
     required String phone,
     required String password,
   }) async {
@@ -31,12 +26,7 @@ class RegisterProvider with ChangeNotifier {
     final uri = Uri.parse('https://backendlinc.up.railway.app/api/auth/register');
     final body = jsonEncode({
       'name': name,
-      'username': username,
       'email': email,
-      'address': address,
-      'city': city,
-      'state': state,
-      'pincode': pincode,
       'phone': phone,
       'password': password,
       'role': isCustomer ? 'customer' : 'seller',

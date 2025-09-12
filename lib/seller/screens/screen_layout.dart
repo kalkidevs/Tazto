@@ -32,6 +32,9 @@ class _SellerLayoutState extends State<SellerLayout> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         selectedItemColor: Theme.of(context).primaryColor,
+        unselectedItemColor: Colors.grey.shade600,
+        type: BottomNavigationBarType.fixed,
+        showUnselectedLabels: true,
         onTap: (i) => setState(() => _currentIndex = i),
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Dashboard'),
@@ -40,6 +43,7 @@ class _SellerLayoutState extends State<SellerLayout> {
           BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Settings'),
         ],
       ),
+
     );
   }
 }

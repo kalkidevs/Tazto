@@ -10,6 +10,13 @@ class LoginProvider with ChangeNotifier {
   String? errorMessage;
   String? token;
   String? role; // <-- add this
+  bool isCustomerLogin = true; // User's selected login role
+
+  void toggleLoginRole(bool isCustomer) {
+    if (isCustomerLogin == isCustomer) return;
+    isCustomerLogin = isCustomer;
+    notifyListeners();
+  }
 
   Future<bool> login(String email, String password) async {
     isLoading = true;

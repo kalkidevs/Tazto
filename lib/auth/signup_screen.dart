@@ -1,3 +1,8 @@
+// Gst mandatory if gst api will be free, gst number and upload gst pan docs.
+// remove unsessary fields in check out like address
+// can check GSt details using external third party link.
+
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -19,21 +24,11 @@ class SignUpPage extends StatefulWidget {
 class _SignUpPageState extends State<SignUpPage>
     with SingleTickerProviderStateMixin {
   late final TextEditingController _nameC;
-  late final TextEditingController _userC;
   late final TextEditingController _emailC;
-  late final TextEditingController _addressC;
-  late final TextEditingController _cityC;
-  late final TextEditingController _stateC;
-  late final TextEditingController _pinC;
   late final TextEditingController _phoneC;
   late final TextEditingController _passC;
   late final FocusNode _focusName,
-      _focusUser,
       _focusEmail,
-      _focusAddress,
-      _focusCity,
-      _focusState,
-      _focusPin,
       _focusPhone,
       _focusPass;
 
@@ -46,22 +41,12 @@ class _SignUpPageState extends State<SignUpPage>
   void initState() {
     super.initState();
     _nameC = TextEditingController();
-    _userC = TextEditingController();
     _emailC = TextEditingController();
-    _addressC = TextEditingController();
-    _cityC = TextEditingController();
-    _stateC = TextEditingController();
-    _pinC = TextEditingController();
     _phoneC = TextEditingController();
     _passC = TextEditingController();
 
     _focusName = FocusNode();
-    _focusUser = FocusNode();
     _focusEmail = FocusNode();
-    _focusAddress = FocusNode();
-    _focusCity = FocusNode();
-    _focusState = FocusNode();
-    _focusPin = FocusNode();
     _focusPhone = FocusNode();
     _focusPass = FocusNode();
 
@@ -81,12 +66,7 @@ class _SignUpPageState extends State<SignUpPage>
   void dispose() {
     for (final node in [
       _focusName,
-      _focusUser,
       _focusEmail,
-      _focusAddress,
-      _focusCity,
-      _focusState,
-      _focusPin,
       _focusPhone,
       _focusPass,
     ]) {
@@ -95,12 +75,7 @@ class _SignUpPageState extends State<SignUpPage>
 
     for (final ctrl in [
       _nameC,
-      _userC,
       _emailC,
-      _addressC,
-      _cityC,
-      _stateC,
-      _pinC,
       _phoneC,
       _passC,
     ]) {
@@ -204,7 +179,7 @@ class _SignUpPageState extends State<SignUpPage>
                           ),
                           const SizedBox(height: 20),
 
-                          // Input fields
+                          // Input fields (minimal)
                           _FieldWrapper(
                             focus: _focusName,
                             child: TextField(
@@ -214,28 +189,6 @@ class _SignUpPageState extends State<SignUpPage>
                               decoration: InputDecoration(
                                 labelText: 'Full Name',
                                 prefixIcon: const Icon(Icons.person_outline),
-                                filled: true,
-                                fillColor: cs.surface.withOpacity(0.7),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                              ),
-                              onSubmitted: (_) => _focusUser.requestFocus(),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-
-                          _FieldWrapper(
-                            focus: _focusUser,
-                            child: TextField(
-                              controller: _userC,
-                              focusNode: _focusUser,
-                              textInputAction: TextInputAction.next,
-                              decoration: InputDecoration(
-                                labelText: 'Username',
-                                prefixIcon: const Icon(
-                                  Icons.account_circle_outlined,
-                                ),
                                 filled: true,
                                 fillColor: cs.surface.withOpacity(0.7),
                                 border: OutlineInputBorder(
@@ -257,93 +210,6 @@ class _SignUpPageState extends State<SignUpPage>
                               decoration: InputDecoration(
                                 labelText: 'Email',
                                 prefixIcon: const Icon(Icons.email_outlined),
-                                filled: true,
-                                fillColor: cs.surface.withOpacity(0.7),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                              ),
-                              onSubmitted: (_) => _focusAddress.requestFocus(),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-
-                          _FieldWrapper(
-                            focus: _focusAddress,
-                            child: TextField(
-                              controller: _addressC,
-                              focusNode: _focusAddress,
-                              textInputAction: TextInputAction.next,
-                              decoration: InputDecoration(
-                                labelText: 'Address',
-                                prefixIcon: const Icon(Icons.home_outlined),
-                                filled: true,
-                                fillColor: cs.surface.withOpacity(0.7),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                              ),
-                              onSubmitted: (_) => _focusCity.requestFocus(),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _FieldWrapper(
-                                  focus: _focusCity,
-                                  child: TextField(
-                                    controller: _cityC,
-                                    focusNode: _focusCity,
-                                    textInputAction: TextInputAction.next,
-                                    decoration: InputDecoration(
-                                      labelText: 'City',
-                                      filled: true,
-                                      fillColor: cs.surface.withOpacity(0.7),
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(14),
-                                      ),
-                                    ),
-                                    onSubmitted: (_) =>
-                                        _focusState.requestFocus(),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: _FieldWrapper(
-                                  focus: _focusState,
-                                  child: TextField(
-                                    controller: _stateC,
-                                    focusNode: _focusState,
-                                    textInputAction: TextInputAction.next,
-                                    decoration: InputDecoration(
-                                      labelText: 'State',
-                                      filled: true,
-                                      fillColor: cs.surface.withOpacity(0.7),
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(14),
-                                      ),
-                                    ),
-                                    onSubmitted: (_) =>
-                                        _focusPin.requestFocus(),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-
-                          _FieldWrapper(
-                            focus: _focusPin,
-                            child: TextField(
-                              controller: _pinC,
-                              focusNode: _focusPin,
-                              keyboardType: TextInputType.number,
-                              textInputAction: TextInputAction.next,
-                              decoration: InputDecoration(
-                                labelText: 'Pincode',
                                 filled: true,
                                 fillColor: cs.surface.withOpacity(0.7),
                                 border: OutlineInputBorder(
@@ -485,12 +351,7 @@ class _SignUpPageState extends State<SignUpPage>
     final reg = context.read<RegisterProvider>();
     final success = await reg.register(
       name:     _nameC.text.trim(),
-      username: _userC.text.trim(),
       email:    _emailC.text.trim(),
-      address:  _addressC.text.trim(),
-      city:     _cityC.text.trim(),
-      state:    _stateC.text.trim(),
-      pincode:  _pinC.text.trim(),
       phone:    _phoneC.text.trim(),
       password: _passC.text.trim(),
     );

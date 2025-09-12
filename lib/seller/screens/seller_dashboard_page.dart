@@ -28,7 +28,7 @@ class SellerDashboardPage extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Dashboard'),
+        title: Text('Welcome, ${store.name}!'),
         centerTitle: true,
         elevation: 1,
         actions: [
@@ -44,10 +44,6 @@ class SellerDashboardPage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Welcome, ${store.name}!',
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
             const SizedBox(height: 24),
 
             // Stats cards
@@ -180,35 +176,45 @@ class _StatCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
 
-    return SizedBox(
-      width: 140,
-      height: 100,
-      child: Card(
-        elevation: 2,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              CircleAvatar(
-                backgroundColor: color.withOpacity(0.1),
-                child: Icon(icon, color: color),
+    return LayoutBuilder(
+      builder: (ctx, constraints) {
+        final cardWidth = constraints.maxWidth < 600
+            ? constraints.maxWidth / 2 - 20
+            : 160;
+
+        return SizedBox(
+          width: cardWidth.toDouble(),
+          height: 100,
+          child: Card(
+            elevation: 2,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    backgroundColor: color.withOpacity(0.1),
+                    child: Icon(icon, color: color),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(value, style: textTheme.titleLarge),
+                        Text(label, style: textTheme.bodySmall),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(value, style: textTheme.titleLarge),
-                    Text(label, style: textTheme.bodySmall),
-                  ],
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

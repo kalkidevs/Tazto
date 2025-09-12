@@ -3,6 +3,45 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:tazto/providers/customerPdr.dart';
 
+// Helper function to get category-based icons
+IconData _getCategoryIcon(String category) {
+  switch (category.toLowerCase()) {
+    case 'mobile':
+    case 'phone':
+      return Icons.smartphone;
+    case 'electronics':
+    case 'electronic':
+      return Icons.devices;
+    case 'clothing':
+    case 'clothes':
+    case 'fashion':
+      return Icons.shopping_bag;
+    case 'books':
+    case 'book':
+      return Icons.menu_book;
+    case 'home':
+    case 'furniture':
+      return Icons.home;
+    case 'sports':
+    case 'fitness':
+      return Icons.fitness_center;
+    case 'food':
+    case 'grocery':
+      return Icons.restaurant;
+    case 'beauty':
+    case 'cosmetics':
+      return Icons.face;
+    case 'toys':
+    case 'games':
+      return Icons.toys;
+    case 'automotive':
+    case 'car':
+      return Icons.directions_car;
+    default:
+      return Icons.shopping_cart;
+  }
+}
+
 class CartPage extends StatelessWidget {
   const CartPage({super.key});
 
@@ -31,13 +70,20 @@ class CartPage extends StatelessWidget {
               itemBuilder: (_, i) {
                 final c = cart[i];
                 return ListTile(
-                  leading: Image.network(
-                    c.product.image,
+                  leading: Container(
                     width: 50,
                     height: 50,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      _getCategoryIcon(c.product.category),
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
                   ),
                   title: Text(c.product.title),
-                  subtitle: Text('\$${c.product.price} × ${c.quantity}'),
+                  subtitle: Text('₹${c.product.price.toStringAsFixed(0)} × ${c.quantity}'),
                   trailing: IconButton(
                     icon: const Icon(Icons.delete),
                     onPressed: () => prov.removeFromCart(c.id),
@@ -52,7 +98,7 @@ class CartPage extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Total: \$${total.toStringAsFixed(2)}',
+                  'Total: ₹${total.toStringAsFixed(0)}',
                   style: const TextStyle(fontSize: 18),
                 ),
                 ElevatedButton(

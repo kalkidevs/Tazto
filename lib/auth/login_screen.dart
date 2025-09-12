@@ -1,3 +1,6 @@
+// on login add switch customers, sellers , sellers can also make account as customer
+// add flagging for customer = 1 , seller = 1.
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -5,6 +8,7 @@ import 'package:provider/provider.dart';
 import 'package:tazto/auth/signup_screen.dart';
 import 'package:tazto/customer/screens/customer_layout.dart';
 import 'package:tazto/providers/loginPdr.dart';
+import '../helper/roleToggle.dart';
 
 import '../seller/screens/screen_layout.dart';
 import '../theme/app_theme.dart';
@@ -151,6 +155,13 @@ class _LoginPageState extends State<LoginPage>
                             ),
                           ),
                           const SizedBox(height: 24),
+
+                          // Role toggle
+                          RoleToggle(
+                            isCustomer: loginProv.isCustomerLogin,
+                            onChanged: loginProv.toggleLoginRole,
+                          ),
+                          const SizedBox(height: 20),
 
                           // Email field
                           _AnimatedField(
@@ -301,16 +312,16 @@ class _LoginPageState extends State<LoginPage>
 
     if (!mounted || !success) return;
 
-    // route based on role
-    if (prov.role == 'seller') {
+    // route based on selected role preference
+    if (prov.isCustomerLogin) {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const SellerLayout()),
+        MaterialPageRoute(builder: (_) => const CustomerLayout()),
       );
     } else {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const CustomerLayout()),
+        MaterialPageRoute(builder: (_) => const SellerLayout()),
       );
     }
   }
