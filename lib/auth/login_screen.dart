@@ -7,9 +7,11 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:tazto/auth/signup_screen.dart';
 import 'package:tazto/customer/screens/customer_layout.dart';
-import 'package:tazto/providers/loginPdr.dart';
-import '../helper/roleToggle.dart';
+// Import the new dialog helper
+import 'package:tazto/helper/dialog_helper.dart';
 
+import '../helper/roleToggle.dart';
+import '../providers/loginPdr.dart';
 import '../seller/screens/screen_layout.dart';
 import '../theme/app_theme.dart';
 
@@ -216,16 +218,8 @@ class _LoginPageState extends State<LoginPage>
                           ),
                           const SizedBox(height: 8),
 
-                          // Error message
-                          if (loginProv.errorMessage != null)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: Text(
-                                loginProv.errorMessage!,
-                                style: TextStyle(color: Colors.red.shade600),
-                              ),
-                            ),
-
+                          // Error message removed from here
+                          const SizedBox(height: 10), // Added padding
                           // Login button
                           SizedBox(
                             width: double.infinity,
@@ -304,24 +298,36 @@ class _LoginPageState extends State<LoginPage>
 
   Future<void> _submit(BuildContext ctx) async {
     FocusScope.of(ctx).unfocus();
+    // Use read() here as we are in a function
     final prov = ctx.read<LoginProvider>();
+
     final success = await prov.login(
       _emailController.text.trim(),
       _passwordController.text.trim(),
     );
 
-    if (!mounted || !success) return;
+    if (!mounted) return;
 
-    // route based on selected role preference
-    if (prov.isCustomerLogin) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const CustomerLayout()),
-      );
+    if (success) {
+      // route based on selected role preference
+      if (prov.isCustomerLogin) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const CustomerLayout()),
+        );
+      } else {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const SellerLayout()),
+        );
+      }
     } else {
-      Navigator.pushReplacement(
+      // Use the new dialog helper
+      // The provider's errorMessage will have the user-friendly message
+      showErrorDialog(
         context,
-        MaterialPageRoute(builder: (_) => const SellerLayout()),
+        "Login Failed",
+        prov.errorMessage ?? "An unknown error occurred.",
       );
     }
   }

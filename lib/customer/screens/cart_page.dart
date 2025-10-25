@@ -1,7 +1,7 @@
 // lib/screens/customer/cart_page.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:tazto/providers/customerPdr.dart';
+import 'package:tazto/providers/customer_provider.dart';
 
 // Helper function to get category-based icons
 IconData _getCategoryIcon(String category) {
@@ -74,13 +74,27 @@ class CartPage extends StatelessWidget {
                     width: 50,
                     height: 50,
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                      color: c.product.imageURL == null ? Theme.of(context).colorScheme.primary.withOpacity(0.1) : null,
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Icon(
-                      _getCategoryIcon(c.product.category),
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
+                    child: c.product.imageURL != null
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.network(
+                              'https://backendlinc.up.railway.app/${c.product.imageURL}',
+                              width: 50,
+                              height: 50,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) => Icon(
+                                _getCategoryIcon(c.product.category),
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                            ),
+                          )
+                        : Icon(
+                            _getCategoryIcon(c.product.category),
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
                   ),
                   title: Text(c.product.title),
                   subtitle: Text('₹${c.product.price.toStringAsFixed(0)} × ${c.quantity}'),

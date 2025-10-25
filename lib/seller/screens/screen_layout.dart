@@ -1,9 +1,10 @@
 // lib/screens/seller/seller_layout.dart
 import 'package:flutter/material.dart';
-import 'seller_dashboard_page.dart';
-import 'seller_products_page.dart';
-import 'seller_orders_page.dart';
-import 'seller_settings_page.dart';
+import 'package:tazto/seller/screens/profile/seller_settings_page.dart';
+
+import 'dashboard/seller_dashboard_page.dart';
+import 'dashboard/seller_orders_page.dart';
+import 'dashboard/seller_products_page.dart';
 
 class SellerLayout extends StatefulWidget {
   const SellerLayout({super.key});

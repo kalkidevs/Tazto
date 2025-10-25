@@ -1,16 +1,20 @@
-// lib/providers/loginPdr.dart
-
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+
+import '../api/api_client.dart';
+import '../api/auth_api.dart';
 
 class LoginProvider with ChangeNotifier {
+  final AuthApi _authApi = AuthApi();
+
   bool isLoading = false;
   String? errorMessage;
   String? token;
-  String? role; // <-- add this
-  bool isCustomerLogin = true; // User's selected login role
+
+  // This now stores the single, validated role for the current session.
+  String? sessionRole;
+
+  // This boolean state is controlled by the RoleToggle widget on the UI.
+  bool isCustomerLogin = true;
 
   void toggleLoginRole(bool isCustomer) {
     if (isCustomerLogin == isCustomer) return;
@@ -23,36 +27,55 @@ class LoginProvider with ChangeNotifier {
     errorMessage = null;
     notifyListeners();
 
-    final uri = Uri.parse("https://backendlinc.up.railway.app/api/auth/login");
-    final body = jsonEncode({"email": email, "password": password});
+    // Determine the role the user is trying to log in as.
+    final String selectedRole = isCustomerLogin ? "customer" : "seller";
 
     try {
-      final resp = await http.post(
-        uri,
-        headers: {"Content-Type": "application/json"},
-        body: body,
-      );
+      final data = await _authApi.login(email: email, password: password);
 
-      isLoading = false;
+      if (data.containsKey('token') &&
+          data.containsKey('user') &&
+          data['user'] is Map) {
+        final userMap = data['user'] as Map<String, dynamic>;
 
-      if (resp.statusCode == 200) {
-        final data = jsonDecode(resp.body);
+        // The API returns a list of all roles the user has.
+        if (userMap.containsKey('roles') && userMap['roles'] is List) {
+          final List<String> userRoles = List<String>.from(userMap['roles']);
 
-        // store token + role
-        token = data["token"] as String;
-        role = data["user"]["role"] as String; // <-- extract role
+          // **ROLE VALIDATION LOGIC**
+          // Check if the user's list of roles contains the role they selected on the toggle.
+          if (userRoles.contains(selectedRole)) {
+            // Success! The user has the selected role.
+            token = data["token"] as String;
+            sessionRole =
+                selectedRole; // Store the validated role for this session.
 
-        notifyListeners();
-        return true;
+            isLoading = false;
+            notifyListeners();
+            return true;
+          } else {
+            // **Validation Failed:** The user does not have the selected role.
+            // Example: User chose "Seller" but their account only has the "customer" role.
+            throw ApiException(
+              "Access denied. You do not have a '$selectedRole' account.",
+            );
+          }
+        } else {
+          throw Exception("Login error: 'roles' key not found in user object.");
+        }
       } else {
-        final data = jsonDecode(resp.body);
-        errorMessage = data["message"] ?? "Login failed";
-        notifyListeners();
-        return false;
+        throw Exception("Login error: Invalid response structure from server.");
       }
-    } catch (e) {
+    } on ApiException catch (e) {
+      // Handles both API errors and our custom role validation error.
+      errorMessage = e.toString();
       isLoading = false;
-      errorMessage = "Something went wrong";
+      notifyListeners();
+      return false;
+    } catch (e) {
+      debugPrint("Login Provider Error: ${e.toString()}");
+      errorMessage = "An unexpected error occurred.";
+      isLoading = false;
       notifyListeners();
       return false;
     }

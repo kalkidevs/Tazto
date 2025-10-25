@@ -2,7 +2,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../providers/sellerPdr.dart';
+import '../../../providers/seller_provider.dart';
+
 
 class SellerOrdersPage extends StatelessWidget {
   const SellerOrdersPage({super.key});

@@ -5,6 +5,9 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:tazto/auth/login_screen.dart';
 import 'package:tazto/providers/loginPdr.dart';
+import 'package:tazto/seller/screens/profile/seller_profile_page.dart';
+
+import '../upload/product_upload_page.dart';
 
 class SellerSettingsPage extends StatelessWidget {
   const SellerSettingsPage({super.key});
@@ -26,10 +29,11 @@ class SellerSettingsPage extends StatelessWidget {
           _buildSectionHeader(context, 'Account'),
           ListTile(
             leading: const Icon(Icons.person_outline),
-            title: const Text('Profile'),
-            subtitle: const Text('Edit your personal info'),
+            title: const Text('Edit Profile'),
+            subtitle: const Text('Manage your personal and store info'),
             onTap: () {
-              // TODO: navigate to Profile/Edit page
+              // Navigate to the new profile page
+              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SellerProfilePage()));
             },
           ),
           ListTile(
@@ -45,11 +49,12 @@ class SellerSettingsPage extends StatelessWidget {
           // Store Settings
           _buildSectionHeader(context, 'Store'),
           ListTile(
-            leading: const Icon(Icons.storefront_outlined),
-            title: const Text('Store Information'),
-            subtitle: const Text('Manage store details'),
+            leading: const Icon(Icons.upload_file_outlined),
+            title: const Text('Bulk Product Upload'),
+            subtitle: const Text('Add products using a CSV file'),
             onTap: () {
-              // TODO: navigate to Store Info page
+              // Navigate to the new upload page
+              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ProductUploadPage()));
             },
           ),
           ListTile(

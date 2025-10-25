@@ -5,7 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:tazto/auth/login_screen.dart';
 
-import '../../providers/sellerPdr.dart';
+import '../../../providers/seller_provider.dart';
+
 
 class SellerDashboardPage extends StatelessWidget {
   const SellerDashboardPage({super.key});

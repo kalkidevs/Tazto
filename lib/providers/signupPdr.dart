@@ -1,57 +1,64 @@
-import 'dart:convert';
-import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+import 'package:flutter/foundation.dart';
 
-class RegisterProvider with ChangeNotifier {
-  bool isCustomer = true;
+import '../api/api_client.dart';
+import '../api/auth_api.dart';
+
+class SignupProvider with ChangeNotifier {
+  final AuthApi _authApi = AuthApi();
+
   bool isLoading = false;
   String? errorMessage;
 
-  void toggleRole(bool customer) {
-    if (isCustomer == customer) return;
-    isCustomer = customer;
+  // This boolean state is controlled by the RoleToggle widget on the UI.
+  // Defaults to true, meaning "Customer" is selected initially.
+  bool isCustomerSignup = true;
+
+  /// Toggles the role for registration between "Customer" and "Seller".
+  void toggleSignupRole(bool isCustomer) {
+    if (isCustomerSignup == isCustomer) return;
+    isCustomerSignup = isCustomer;
     notifyListeners();
   }
 
+  /// Registers a new user with the role selected in the UI.
   Future<bool> register({
-    required String name,
+    required String name, // <-- ADDED: 'name' is now required
     required String email,
-    required String phone,
     required String password,
   }) async {
     isLoading = true;
     errorMessage = null;
     notifyListeners();
 
-    final uri = Uri.parse('https://backendlinc.up.railway.app/api/auth/register');
-    final body = jsonEncode({
-      'name': name,
-      'email': email,
-      'phone': phone,
-      'password': password,
-      'role': isCustomer ? 'customer' : 'seller',
-    });
+    // Determine the role string and format it as a list
+    final List<String> selectedRoles = [
+      isCustomerSignup ? "customer" : "seller",
+    ];
 
     try {
-      final resp = await http.post(
-        uri,
-        headers: {'Content-Type': 'application/json'},
-        body: body,
+      // Call the API with all required fields
+      await _authApi.register(
+        name: name, // <-- ADDED: Pass the name
+        email: email,
+        password: password,
+        roles: selectedRoles, // <-- CHANGED: 'role' is now 'roles' (a list)
       );
-      isLoading = false;
 
-      if (resp.statusCode == 201 || resp.statusCode == 200) {
-        notifyListeners();
-        return true;
-      } else {
-        final data = jsonDecode(resp.body);
-        errorMessage = data['message'] ?? 'Registration failed';
-        notifyListeners();
-        return false;
-      }
-    } catch (e) {
+      // On success, clear loading state and return true.
       isLoading = false;
-      errorMessage = 'Network error, please try again';
+      notifyListeners();
+      return true;
+    } on ApiException catch (e) {
+      // Handle specific API errors (e.g., "Email already exists").
+      errorMessage = e.toString();
+      isLoading = false;
+      notifyListeners();
+      return false;
+    } catch (e) {
+      // Handle unexpected errors.
+      debugPrint("Signup Provider Error: ${e.toString()}");
+      errorMessage = "An unexpected error occurred during signup.";
+      isLoading = false;
       notifyListeners();
       return false;
     }

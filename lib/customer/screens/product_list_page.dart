@@ -1,7 +1,7 @@
 // // lib/screens/customer/product_list_page.dart
 // import 'package:flutter/material.dart';
 // import 'package:tazto/customer/models/categoryMdl.dart';
-// import '../../providers/customerPdr.dart';
+// import '../../providers/customer_provider.dart';
 // import 'product_detail_page.dart';
 // import 'package:provider/provider.dart';
 //

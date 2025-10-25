@@ -1,15 +1,13 @@
-// Gst mandatory if gst api will be free, gst number and upload gst pan docs.
-// remove unsessary fields in check out like address
-// can check GSt details using external third party link.
-
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import '../customer/screens/customer_layout.dart';
+// Import the new dialog helper
+import '../helper/dialog_helper.dart';
 import '../helper/roleToggle.dart';
+// Updated import to match the new provider name
 import '../providers/signupPdr.dart';
 import '../seller/screens/screen_layout.dart';
 import '../theme/app_theme.dart';
@@ -23,14 +21,11 @@ class SignUpPage extends StatefulWidget {
 
 class _SignUpPageState extends State<SignUpPage>
     with SingleTickerProviderStateMixin {
+  // ADDED: Controllers and FocusNodes for the 'name' field
   late final TextEditingController _nameC;
   late final TextEditingController _emailC;
-  late final TextEditingController _phoneC;
   late final TextEditingController _passC;
-  late final FocusNode _focusName,
-      _focusEmail,
-      _focusPhone,
-      _focusPass;
+  late final FocusNode _focusName, _focusEmail, _focusPass;
 
   late final AnimationController _animCtrl;
   late final Animation<double> _fadeAnim;
@@ -40,14 +35,14 @@ class _SignUpPageState extends State<SignUpPage>
   @override
   void initState() {
     super.initState();
+    // ADDED: Initialize 'name' controller
     _nameC = TextEditingController();
     _emailC = TextEditingController();
-    _phoneC = TextEditingController();
     _passC = TextEditingController();
 
+    // ADDED: Initialize 'name' focus node
     _focusName = FocusNode();
     _focusEmail = FocusNode();
-    _focusPhone = FocusNode();
     _focusPass = FocusNode();
 
     _animCtrl = AnimationController(
@@ -65,18 +60,18 @@ class _SignUpPageState extends State<SignUpPage>
   @override
   void dispose() {
     for (final node in [
+      // ADDED: Dispose 'name' focus node
       _focusName,
       _focusEmail,
-      _focusPhone,
       _focusPass,
     ]) {
       node.dispose();
     }
 
     for (final ctrl in [
+      // ADDED: Dispose 'name' controller
       _nameC,
       _emailC,
-      _phoneC,
       _passC,
     ]) {
       ctrl.dispose();
@@ -88,7 +83,8 @@ class _SignUpPageState extends State<SignUpPage>
 
   @override
   Widget build(BuildContext context) {
-    final reg = context.watch<RegisterProvider>();
+    // Updated to use SignupProvider
+    final reg = context.watch<SignupProvider>();
     final cs = Theme.of(context).colorScheme;
 
     return GestureDetector(
@@ -174,17 +170,19 @@ class _SignUpPageState extends State<SignUpPage>
 
                           // Role toggle
                           RoleToggle(
-                            isCustomer: reg.isCustomer,
-                            onChanged: reg.toggleRole,
+                            isCustomer: reg.isCustomerSignup,
+                            onChanged: reg.toggleSignupRole,
                           ),
                           const SizedBox(height: 20),
 
-                          // Input fields (minimal)
+                          // ADDED: Name Field
                           _FieldWrapper(
                             focus: _focusName,
                             child: TextField(
                               controller: _nameC,
                               focusNode: _focusName,
+                              keyboardType: TextInputType.name,
+                              textCapitalization: TextCapitalization.words,
                               textInputAction: TextInputAction.next,
                               decoration: InputDecoration(
                                 labelText: 'Full Name',
@@ -200,6 +198,7 @@ class _SignUpPageState extends State<SignUpPage>
                           ),
                           const SizedBox(height: 12),
 
+                          // Email field
                           _FieldWrapper(
                             focus: _focusEmail,
                             child: TextField(
@@ -216,32 +215,12 @@ class _SignUpPageState extends State<SignUpPage>
                                   borderRadius: BorderRadius.circular(14),
                                 ),
                               ),
-                              onSubmitted: (_) => _focusPhone.requestFocus(),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-
-                          _FieldWrapper(
-                            focus: _focusPhone,
-                            child: TextField(
-                              controller: _phoneC,
-                              focusNode: _focusPhone,
-                              keyboardType: TextInputType.phone,
-                              textInputAction: TextInputAction.next,
-                              decoration: InputDecoration(
-                                labelText: 'Phone',
-                                prefixIcon: const Icon(Icons.phone_outlined),
-                                filled: true,
-                                fillColor: cs.surface.withOpacity(0.7),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                              ),
                               onSubmitted: (_) => _focusPass.requestFocus(),
                             ),
                           ),
                           const SizedBox(height: 12),
 
+                          // Password field
                           _FieldWrapper(
                             focus: _focusPass,
                             child: TextField(
@@ -249,6 +228,7 @@ class _SignUpPageState extends State<SignUpPage>
                               focusNode: _focusPass,
                               obscureText: _obscure,
                               textInputAction: TextInputAction.done,
+                              onSubmitted: (_) => _onSubmit(context),
                               decoration: InputDecoration(
                                 labelText: 'Password',
                                 prefixIcon: const Icon(Icons.lock_outline),
@@ -271,16 +251,8 @@ class _SignUpPageState extends State<SignUpPage>
                           ),
                           const SizedBox(height: 10),
 
-                          // Error message
-                          if (reg.errorMessage != null)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: Text(
-                                reg.errorMessage!,
-                                style: TextStyle(color: Colors.red.shade600),
-                              ),
-                            ),
-
+                          // Error message removed from here
+                          const SizedBox(height: 10), // Added padding
                           // Sign Up button
                           SizedBox(
                             width: double.infinity,
@@ -348,11 +320,13 @@ class _SignUpPageState extends State<SignUpPage>
     // dismiss keyboard
     FocusScope.of(context).unfocus();
 
-    final reg = context.read<RegisterProvider>();
+    // Use SignupProvider
+    final reg = context.read<SignupProvider>();
+
+    // UPDATED: Pass the name to the register function
     final success = await reg.register(
-      name:     _nameC.text.trim(),
-      email:    _emailC.text.trim(),
-      phone:    _phoneC.text.trim(),
+      name: _nameC.text.trim(),
+      email: _emailC.text.trim(),
       password: _passC.text.trim(),
     );
 
@@ -360,26 +334,24 @@ class _SignUpPageState extends State<SignUpPage>
 
     if (success) {
       HapticFeedback.lightImpact();
-
-      // Route based on selected role
-      if (reg.isCustomer) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const CustomerLayout()),
-        );
-      } else {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const SellerLayout()),
-        );
+      // On success, go to login page (or straight to dashboard)
+      // Going to login is often safer
+      if (mounted) {
+        Navigator.pop(context); // Go back to login
       }
     } else {
       HapticFeedback.heavyImpact();
-      // You can also show a SnackBar or dialog here
+      // Use the new dialog helper
+      showErrorDialog(
+        context,
+        "Signup Failed",
+        reg.errorMessage ?? "An unknown error occurred.",
+      );
     }
   }
 }
 
+// This widget remains unchanged
 class _FieldWrapper extends StatefulWidget {
   final FocusNode focus;
   final Widget child;

@@ -3,8 +3,8 @@ import 'package:provider/provider.dart';
 
 import 'package:tazto/providers/loginPdr.dart';
 import 'package:tazto/providers/signupPdr.dart';
-import 'package:tazto/providers/sellerPdr.dart';
-import 'package:tazto/providers/customerPdr.dart';
+import 'package:tazto/providers/seller_provider.dart';
+import 'package:tazto/providers/customer_provider.dart';
 
 import 'package:tazto/splash_screen.dart';
 import 'package:tazto/theme/app_theme.dart';
@@ -16,7 +16,7 @@ void main() {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => LoginProvider()),
-        ChangeNotifierProvider(create: (_) => RegisterProvider()),
+        ChangeNotifierProvider(create: (_) => SignupProvider()),
         ChangeNotifierProvider(create: (_) => SellerProvider()),
 
         // <- Here we wire up fetchProducts() immediately:
