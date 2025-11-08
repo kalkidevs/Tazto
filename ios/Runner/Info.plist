@@ -8,6 +8,10 @@
 	<string>Tazto</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+    <string>This app needs access to your location to set up your delivery address.</string>
+    <key>NSLocationAlwaysUsageDescription</key>
+    <string>This app needs access to your location to set up your delivery address.</string>
 	<key>CFBundleIdentifier</key>
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleInfoDictionaryVersion</key>

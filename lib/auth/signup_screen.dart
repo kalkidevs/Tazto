@@ -3,14 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
-import '../customer/screens/customer_layout.dart';
-// Import the new dialog helper
 import '../helper/dialog_helper.dart';
 import '../helper/roleToggle.dart';
-// Updated import to match the new provider name
 import '../providers/signupPdr.dart';
-import '../seller/screens/screen_layout.dart';
-import '../theme/app_theme.dart';
+import '../app/config/app_theme.dart';
 
 class SignUpPage extends StatefulWidget {
   const SignUpPage({super.key});

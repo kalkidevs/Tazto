@@ -6,14 +6,13 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:tazto/auth/signup_screen.dart';
-import 'package:tazto/customer/screens/customer_layout.dart';
-// Import the new dialog helper
+import 'package:tazto/features/customer/screens/customer_layout.dart';
+import 'package:tazto/features/seller/screens/screen_layout.dart';
 import 'package:tazto/helper/dialog_helper.dart';
 
+import '../app/config/app_theme.dart';
 import '../helper/roleToggle.dart';
-import '../providers/loginPdr.dart';
-import '../seller/screens/screen_layout.dart';
-import '../theme/app_theme.dart';
+import '../providers/login_provider.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -195,6 +194,7 @@ class _LoginPageState extends State<LoginPage>
                               focusNode: _passwordFocus,
                               obscureText: _obscure,
                               textInputAction: TextInputAction.done,
+                              // *** FIXED: Pass context to _submit ***
                               onSubmitted: (_) => _submit(context),
                               decoration: InputDecoration(
                                 labelText: "Password",
@@ -235,6 +235,7 @@ class _LoginPageState extends State<LoginPage>
                               ),
                               onPressed: loginProv.isLoading
                                   ? null
+                                  // *** FIXED: Pass context to _submit ***
                                   : () => _submit(context),
                               child: AnimatedSwitcher(
                                 duration: const Duration(milliseconds: 220),
@@ -301,7 +302,9 @@ class _LoginPageState extends State<LoginPage>
     // Use read() here as we are in a function
     final prov = ctx.read<LoginProvider>();
 
+    // *** FIXED: Pass context to the login method ***
     final success = await prov.login(
+      ctx, // Pass the BuildContext
       _emailController.text.trim(),
       _passwordController.text.trim(),
     );

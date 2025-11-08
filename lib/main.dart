@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-
-import 'package:tazto/providers/loginPdr.dart';
-import 'package:tazto/providers/signupPdr.dart';
-import 'package:tazto/providers/seller_provider.dart';
+import 'package:tazto/app/config/app_theme.dart';
 import 'package:tazto/providers/customer_provider.dart';
-
+import 'package:tazto/providers/login_provider.dart';
+import 'package:tazto/providers/seller_provider.dart';
+import 'package:tazto/providers/signupPdr.dart';
 import 'package:tazto/splash_screen.dart';
-import 'package:tazto/theme/app_theme.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,11 +17,10 @@ void main() {
         ChangeNotifierProvider(create: (_) => SignupProvider()),
         ChangeNotifierProvider(create: (_) => SellerProvider()),
 
-        // <- Here we wire up fetchProducts() immediately:
         ChangeNotifierProvider(
           create: (_) {
             final customerProv = CustomerProvider();
-            customerProv.fetchProducts();
+            // customerProv.fetchProducts();
             return customerProv;
           },
         ),

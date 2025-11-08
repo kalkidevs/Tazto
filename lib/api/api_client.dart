@@ -22,19 +22,22 @@ class ApiClient {
   // ---  DEVELOPMENT TOGGLE ---
   // Set this to 'true' to test against your local server.
   // Set this to 'false' to use your live 'onrender.com' server.
-  static const bool _isTestingLocally = true;
+  static const bool _isTestingLocally = false;
 
   // --- API URLS ---
   // Live URL
-  static const String _liveUrl = "https://backend-linc-1.onrender.com";
+  static const String _liveUrl = "https://backend-linc-2.onrender.com";
 
   // Local URL for Android Emulator
   // (10.0.2.2 points from the emulator back to your computer's localhost)
   // static const String _localUrl = "http://10.0.2.2:3000"; // <-- OLD
 
   // (If testing on an iOS Simulator, you can use: "http://localhost:3000")
-  static const String _localUrl =
-      "http://localhost:3000"; // <-- NEW: Use this line for iOS
+
+  static const String _localUrl = "http://localhost:3000";
+
+  // Use adb reverse (for Android only, emulator or USB debugging):
+  //Terminal Run: "adb reverse tcp:3000 tcp:3000"
 
   // (If testing on a REAL PHONE, use your computer's Wi-Fi IP, e.g., "http://192.168.1.5:3000")
 

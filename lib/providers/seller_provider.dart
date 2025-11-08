@@ -1,9 +1,9 @@
 // lib/providers/seller_provider.dart
 import 'package:flutter/material.dart';
-import 'package:tazto/seller/models/orderMdl.dart';
+import 'package:tazto/features/seller/models/soreMdl.dart';
 
-import '../seller/models/productMdl.dart';
-import '../seller/models/soreMdl.dart';
+import '../features/seller/models/orderMdl.dart';
+import '../features/seller/models/seller_product_model.dart';
 
 class SellerProvider with ChangeNotifier {
   // Sample Store
@@ -19,8 +19,8 @@ class SellerProvider with ChangeNotifier {
   ];
 
   // Sample Products
-  final List<Product> _products = [
-    Product(
+  final List<SellerProduct> _products = [
+    SellerProduct(
       id: 'prod_1',
       storeId: 'store_1',
       name: 'Organic Apples',
@@ -28,7 +28,7 @@ class SellerProvider with ChangeNotifier {
       price: 3.99,
       stock: 50,
     ),
-    Product(
+    SellerProduct(
       id: 'prod_2',
       storeId: 'store_1',
       name: 'Whole Wheat Bread',
@@ -36,7 +36,7 @@ class SellerProvider with ChangeNotifier {
       price: 2.49,
       stock: 30,
     ),
-    Product(
+    SellerProduct(
       id: 'prod_3',
       storeId: 'store_1',
       name: 'Almond Milk',
@@ -67,7 +67,7 @@ class SellerProvider with ChangeNotifier {
   ];
 
   List<Store> get stores => [..._stores];
-  List<Product> get products => [..._products];
+  List<SellerProduct> get products => [..._products];
   List<Order> get orders => [..._orders];
 
 // you can add CRUD methods here and call notifyListeners()
