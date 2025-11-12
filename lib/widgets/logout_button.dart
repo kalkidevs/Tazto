@@ -484,6 +484,8 @@ class _ReusableLogoutButtonState extends State<ReusableLogoutButton>
 
   void _performJoyfulLogout(BuildContext context) {
     // Show a loading dialog with its own animation
+    final loginProvider = context.read<LoginProvider>();
+    final navigator = Navigator.of(context);
     showDialog(
       context: context,
       barrierDismissible: false, // Prevent closing during logout
@@ -555,10 +557,10 @@ class _ReusableLogoutButtonState extends State<ReusableLogoutButton>
     // Simulate logout process delay
     Future.delayed(const Duration(milliseconds: 1200), () {
       // Perform the actual logout via provider
-      context.read<LoginProvider>().logout(context);
+      loginProvider.logout(context);
 
       // Navigate to login page with a smooth transition
-      Navigator.of(context).pushAndRemoveUntil(
+      navigator.pushAndRemoveUntil(
         PageRouteBuilder(
           pageBuilder: (context, animation, secondaryAnimation) =>
               const LoginPage(),

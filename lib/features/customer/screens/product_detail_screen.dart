@@ -63,19 +63,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     }
   }
 
-  void _incrementQuantity() {
-    setState(() {
-      _quantity++;
-    });
-  }
 
-  void _decrementQuantity() {
-    if (_quantity > 1) {
-      setState(() {
-        _quantity--;
-      });
-    }
-  }
 
   @override
   Widget build(BuildContext context) {

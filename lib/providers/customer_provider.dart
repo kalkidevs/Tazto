@@ -12,7 +12,7 @@ import '../api/api_client.dart';
 import '../api/cart_api.dart';
 import '../api/category_api.dart';
 import '../api/order_api.dart';
-import '../api/product_api_dart.dart';
+import '../api/product_api.dart';
 import '../api/user_api.dart';
 
 class CustomerProvider with ChangeNotifier {
@@ -29,61 +29,8 @@ class CustomerProvider with ChangeNotifier {
 
   // --- ADDED: Location State ---
   String? _currentLocationMessage;
-
-  // ---------------------------
-
-  // final List<CustomerCategory> _categories = [
-  //   CustomerCategory(
-  //     id: 'c1',
-  //     name: 'Vegetables & Fruits',
-  //     imageUrl: 'https://placehold.co/100x100/A2E4B8/A2E4B8?text=V',
-  //   ),
-  //   CustomerCategory(
-  //     id: 'c2',
-  //     name: 'Dairy & Breakfast',
-  //     imageUrl: 'https://placehold.co/100x100/F5D7A4/F5D7A4?text=D',
-  //   ),
-  //   CustomerCategory(
-  //     id: 'c3',
-  //     name: 'Cold Drinks & Juices',
-  //     imageUrl: 'https://placehold.co/100x100/A4DFF5/A4DFF5?text=C',
-  //   ),
-  //   CustomerCategory(
-  //     id: 'c4',
-  //     name: 'Instant & Frozen Food',
-  //     imageUrl: 'https://placehold.co/100x100/A4F5E6/A4F5E6?text=I',
-  //   ),
-  //   CustomerCategory(
-  //     id: 'c5',
-  //     name: 'Tea & Coffee',
-  //     imageUrl: 'https://placehold.co/100x100/E1CBA4/E1CBA4?text=T',
-  //   ),
-  //   CustomerCategory(
-  //     id: 'c6',
-  //     name: 'Atta, Rice & Dal',
-  //     imageUrl: 'https://placehold.co/100x100/F5EBA4/F5EBA4?text=A',
-  //   ),
-  //   CustomerCategory(
-  //     id: 'c7',
-  //     name: 'Masala, Oil & Dry Fruits',
-  //     imageUrl: 'https://placehold.co/100x100/F5A4A4/F5A4A4?text=M',
-  //   ),
-  //   CustomerCategory(
-  //     id: 'c8',
-  //     name: 'Chicken, Meat & Fish',
-  //     imageUrl: 'https://placehold.co/100x100/F5B0A4/F5B0A4?text=C',
-  //   ),
-  //   CustomerCategory(
-  //     id: 'c9',
-  //     name: 'Electronics',
-  //     imageUrl: 'https://placehold.co/100x100/CCCCCC/CCCCCC?text=E',
-  //   ),
-  //   CustomerCategory(
-  //     id: 'c10',
-  //     name: 'Mobile',
-  //     imageUrl: 'https://placehold.co/100x100/BDBDBD/BDBDBD?text=P',
-  //   ),
-  // ];
+  Position? _currentPosition;
+  List<CustomerCategory> _availableCategories = []; // <-- ADDED: Filtered list
   List<CustomerCategory> _categories = [];
   bool _isLoadingCategories = false;
   String? _categoriesError;
@@ -109,7 +56,14 @@ class CustomerProvider with ChangeNotifier {
   // --- ADDED: Location Getter ---
   String? get currentLocationMessage => _currentLocationMessage;
 
+  Position? get currentPosition =>
+      _currentPosition; // --- NEW: Getter for position
+
   List<CustomerCategory> get categories => [..._categories];
+
+  List<CustomerCategory> get availableCategories => [
+    ..._availableCategories,
+  ]; // <-- ADDED: Getter for filtered list
 
   // --- ADDED: Category loading getters ---
   bool get isLoadingCategories => _isLoadingCategories;
@@ -155,11 +109,27 @@ class CustomerProvider with ChangeNotifier {
       final userData = await _userApi.getMyProfile();
       _user = CustomerUser.fromJson(userData);
       _userError = null;
+      // --- ADDED: Debug Print for Customer Login ---
+      debugPrint("\n========== 💎 CUSTOMER LOGIN SUCCESS 💎 ==========");
+      debugPrint("  👤 User: ${_user!.name} (ID: ${_user!.id})");
+      debugPrint("  📧 Email: ${_user!.email}");
+      if (_user!.addresses.isEmpty) {
+        debugPrint("  🏠 Addresses: None");
+      } else {
+        debugPrint("  🏠 Addresses: (${_user!.addresses.length})");
+        for (var addr in _user!.addresses) {
+          debugPrint(
+            "     - ${addr.label}: ${addr.street}, ${addr.city} (ID: ${addr.id})",
+          );
+        }
+      }
+      debugPrint("================================================\n");
       // --- MODIFIED: Chain location check after profile fetch ---
       await checkAndFetchLocation();
       // Concurrently fetch cart and orders
       await Future.wait([
         fetchProducts(),
+        // fetchProducts will now wait for location internally
         fetchCart(),
         fetchMyOrders(),
         fetchCategories(),
@@ -171,6 +141,7 @@ class CustomerProvider with ChangeNotifier {
       _cart = [];
       _orders = [];
       _categories = [];
+      _availableCategories = [];
     } catch (e) {
       _handleGenericError(e, 'fetchUserProfile');
       _userError = 'An unexpected error occurred.';
@@ -178,6 +149,7 @@ class CustomerProvider with ChangeNotifier {
       _cart = [];
       _orders = [];
       _categories = [];
+      _availableCategories = [];
     } finally {
       _isLoadingUser = false;
       notifyListeners();
@@ -186,13 +158,22 @@ class CustomerProvider with ChangeNotifier {
 
   // --- ADDED: Location Service Logic ---
   Future<void> checkAndFetchLocation() async {
-    // 1. Only run if user is loaded AND has no addresses
-    if (_user == null || (_user?.addresses.isNotEmpty ?? true)) {
+    // 1. Only run if user is loaded
+    if (_user == null) {
       _currentLocationMessage = null; // Clear any old message
       return;
     }
 
-    _currentLocationMessage = "Finding location...";
+    // --- NEW: If user has an address, use that to get location info ---
+    // (This part is not fully implemented, but we set the message)
+    if (_user!.addresses.isNotEmpty) {
+      final firstAddress = _user!.addresses.first;
+      _currentLocationMessage = "${firstAddress.city}, ${firstAddress.pincode}";
+      // TO-DO: Get lat/lng from address if needed, or assume first address
+      // For now, we'll still try to get live location for product fetching
+    } else {
+      _currentLocationMessage = "Finding location...";
+    }
     notifyListeners();
 
     try {
@@ -221,24 +202,31 @@ class CustomerProvider with ChangeNotifier {
 
       // 3. Get coordinates
       final position = await Geolocator.getCurrentPosition();
+      _currentPosition = position; // --- NEW: Store the position object ---
 
       // 4. Convert coordinates to address (placemark)
-      final placemarks = await placemarkFromCoordinates(
-        position.latitude,
-        position.longitude,
-      );
+      // Only update the message if user has NO addresses
+      if (_user!.addresses.isEmpty) {
+        final placemarks = await placemarkFromCoordinates(
+          position.latitude,
+          position.longitude,
+        );
 
-      if (placemarks.isNotEmpty) {
-        final pm = placemarks.first;
-        final city = pm.locality ?? 'Unknown City';
-        final pincode = pm.postalCode ?? '000000';
-        _currentLocationMessage = "$city, $pincode";
-      } else {
-        throw Exception('No address found for location.');
+        if (placemarks.isNotEmpty) {
+          final pm = placemarks.first;
+          final city = pm.locality ?? 'Unknown City';
+          final pincode = pm.postalCode ?? '000000';
+          _currentLocationMessage = "$city, $pincode";
+        } else {
+          throw Exception('No address found for location.');
+        }
       }
     } catch (e) {
       _handleGenericError(e, 'checkAndFetchLocation');
-      _currentLocationMessage = "Select your address"; // Default on error
+      _currentPosition = null; // --- NEW: Clear position on error ---
+      if (_user!.addresses.isEmpty) {
+        _currentLocationMessage = "Select your address"; // Default on error
+      }
     } finally {
       notifyListeners();
     }
@@ -425,8 +413,38 @@ class CustomerProvider with ChangeNotifier {
     _isLoadingProducts = true;
     _productsError = null;
     notifyListeners();
+
     try {
-      final data = await _productApi.getAllProducts();
+      // --- NEW: Wait for location if it's not available ---
+      if (_currentPosition == null) {
+        debugPrint("fetchProducts: Position is null, waiting for location...");
+        // This relies on fetchUserProfile calling checkAndFetchLocation first
+        // We add a small safety delay
+        await Future.delayed(const Duration(milliseconds: 500));
+        if (_currentPosition == null) {
+          debugPrint(
+            "fetchProducts: Position still null. Fetching location again.",
+          );
+          await checkAndFetchLocation(); // Try one more time
+        }
+      }
+
+      if (_currentPosition == null) {
+        throw ApiException(
+          "Could not determine your location to find nearby stores.",
+        );
+      }
+      // --- ADDED: Debug Print for Location ---
+      debugPrint("\n========== 🛍️ CUSTOMER PRODUCT FETCH 🛍️ ==========");
+      debugPrint(
+        "  📍 Using Location: (Lat: ${_currentPosition!.latitude}, Lng: ${_currentPosition!.longitude})",
+      );
+      // -------------------------------------
+
+      final data = await _productApi.getAllProducts(
+        lat: _currentPosition!.latitude,
+        lng: _currentPosition!.longitude,
+      );
       final List<dynamic> productList = (data['products'] is List)
           ? data['products'] as List<dynamic>
           : [];
@@ -440,6 +458,31 @@ class CustomerProvider with ChangeNotifier {
             }
           })
           .whereType<CustomerProduct>()
+          .toList();
+
+      // --- ADDED: Enhanced Debug Logging ---
+      if (_products.isEmpty) {
+        debugPrint("  > No products found for the nearest store.");
+      } else {
+        // Log details of the first product to confirm storeId
+        final firstProduct = _products.first;
+        debugPrint(
+          "  > Found ${_products.length} products. All from Store ID: ${firstProduct.storeId}",
+        );
+        debugPrint(
+          "  > Example: ${firstProduct.title} (ID: ${firstProduct.id})",
+        );
+      }
+      debugPrint("================================================\n");
+      // -------------------------------------
+      final productCategoryNames = _products
+          .map((p) => p.category.toLowerCase().trim())
+          .toSet();
+
+      _availableCategories = _categories
+          .where(
+            (c) => productCategoryNames.contains(c.name.toLowerCase().trim()),
+          )
           .toList();
       _productsError = null;
     } on ApiException catch (e) {
@@ -477,10 +520,11 @@ class CustomerProvider with ChangeNotifier {
         );
         // Add or update in cache
         final index = _products.indexWhere((p) => p.id == product.id);
-        if (index != -1)
+        if (index != -1) {
           _products[index] = product;
-        else
+        } else {
           _products.add(product);
+        }
         return product;
       } else {
         return null; // Product not found by API
@@ -520,16 +564,26 @@ class CustomerProvider with ChangeNotifier {
   }
 
   Future<void> addToCart(CustomerProduct prod, {int quantity = 1}) async {
+    // --- ADDED: StoreID check ---
+    if (_cart.isNotEmpty && prod.storeId != _cart.first.product.storeId) {
+      _cartError = "You can only order from one store at a time.";
+      notifyListeners();
+      // Throw an exception so the UI can catch it (e.g., in ProductCard)
+      throw ApiException(_cartError!);
+    }
+    // --- END: StoreID check ---
+
     final existingIndex = _cart.indexWhere(
       (item) => item.product.id == prod.id,
     );
     final currentQuantity = existingIndex >= 0
         ? _cart[existingIndex].quantity
         : 0;
-    if (existingIndex >= 0)
+    if (existingIndex >= 0) {
       _cart[existingIndex].quantity += quantity;
-    else
+    } else {
       _cart.add(CartItem(id: prod.id, product: prod, quantity: quantity));
+    }
     notifyListeners();
     try {
       final updatedCartData = await _cartApi.addToCart(
@@ -589,8 +643,9 @@ class CustomerProvider with ChangeNotifier {
       final updatedCartData = await _cartApi.removeCartItem(
         productId: productId,
       );
-      if (updatedCartData.containsKey('products'))
+      if (updatedCartData.containsKey('products')) {
         _updateLocalCartFromServer(updatedCartData);
+      }
     } on ApiException catch (e) {
       _cart.insert(itemIndex, originalItem);
       _cartError = "Remove failed: ${e.message}";
@@ -749,13 +804,17 @@ class CustomerProvider with ChangeNotifier {
     _ordersError = null;
     _productsError = null;
     _currentLocationMessage = null;
+    _currentPosition = null; // --- NEW: Clear position on logout ---
     _isLoadingUser = false;
     _categoriesError = null;
     _isLoadingProducts = false;
     _isLoadingCart = false;
     _isLoadingOrders = false;
     _isLoadingCategories = false;
-    ApiClient().deleteToken();
+    _availableCategories = [];
+    // --- THIS LINE IS THE BUG, REMOVE IT ---
+    // ApiClient().deleteToken();
+    // --- END BUG ---
     notifyListeners();
   }
 

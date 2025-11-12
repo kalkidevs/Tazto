@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:tazto/api/api_client.dart';
 import 'package:tazto/api/auth_api.dart';
-import 'package:tazto/providers/customer_provider.dart'; // Import provider
+import 'package:tazto/providers/customer_provider.dart';
+import 'package:tazto/providers/seller_provider.dart'; // Import provider
 
 class LoginProvider with ChangeNotifier {
   final AuthApi _authApi = AuthApi();
@@ -32,6 +33,7 @@ class LoginProvider with ChangeNotifier {
     final String selectedRole = isCustomerLogin ? "customer" : "seller";
 
     try {
+      // This step logs in AND saves the token via AuthApi
       final data = await _authApi.login(email: email, password: password);
 
       if (data.containsKey('token') &&
@@ -46,12 +48,25 @@ class LoginProvider with ChangeNotifier {
             token = data["token"] as String;
             sessionRole = selectedRole;
 
-            // *** NEW: SET THE USER IN CUSTOM*S**
-            // Use context.read() to get CustomerProvider without listening
-            // This will trigger fetchUserProfile(), which in turn fetches
-            // products, cart, and orders.
-            context.read<CustomerProvider>().setUser(userMap);
-            // ***********************************************
+            // --- THIS IS THE FIX ---
+            // Use context.read() to get providers
+            final customerProvider = context.read<CustomerProvider>();
+            final sellerProvider = context.read<SellerProvider>();
+
+            if (selectedRole == 'customer') {
+              // User is a customer
+              sellerProvider.clearSellerData(); // Clear any old seller data
+              customerProvider.setUser(
+                userMap,
+              ); // This triggers all customer data fetching
+            } else {
+              // User is a seller
+              customerProvider
+                  .clearUser(); // Clear any old customer data (this NO LONGER deletes the token)
+              sellerProvider
+                  .fetchStoreProfile(); // This triggers seller data fetching
+            }
+            // --- END OF FIX ---
 
             isLoading = false;
             notifyListeners();
@@ -101,6 +116,9 @@ class LoginProvider with ChangeNotifier {
     try {
       // Use context.read() as we're in a method, not rebuilding
       context.read<CustomerProvider>().clearUser();
+      context
+          .read<SellerProvider>()
+          .clearSellerData(); // --- ADDED: Clear SellerProvider ---
     } catch (e) {
       debugPrint("Error clearing CustomerProvider: $e");
     }

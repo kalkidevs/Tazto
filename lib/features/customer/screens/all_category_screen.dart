@@ -7,7 +7,6 @@ import 'package:tazto/features/customer/screens/category_products_screen.dart';
 import 'package:tazto/features/customer/widgets/custom_appbar.dart';
 import 'package:tazto/providers/customer_provider.dart';
 
-import 'home_page.dart' hide getCategoryIcon;
 
 class AllCategoriesScreen extends StatelessWidget {
   const AllCategoriesScreen({super.key});
@@ -15,7 +14,7 @@ class AllCategoriesScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<CustomerProvider>();
-    final categories = provider.categories; // Get categories from provider
+    final categories = provider.availableCategories;
 
     return Scaffold(
       backgroundColor: AppColors.background,

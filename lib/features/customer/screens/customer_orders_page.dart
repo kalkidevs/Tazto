@@ -254,8 +254,6 @@ class _CustomerOrdersPageState extends State<CustomerOrdersPage> {
         return AppColors.primary;
       case OrderStatus.cancelled:
         return Colors.red;
-      default:
-        return Colors.grey;
-    }
+      }
   }
 }

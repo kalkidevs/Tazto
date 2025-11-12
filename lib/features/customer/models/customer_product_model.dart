@@ -4,6 +4,7 @@ import 'rating.dart';
 
 class CustomerProduct {
   final String id;
+  final String storeId; // <-- ADDED THIS
   final String title;
   final double price;
   final String description;
@@ -18,6 +19,7 @@ class CustomerProduct {
 
   CustomerProduct({
     required this.id,
+    required this.storeId, // <-- ADDED THIS
     required this.title,
     required this.price,
     required this.description,
@@ -61,6 +63,8 @@ class CustomerProduct {
     // FIX: Use _id from Mongoose, provide fallbacks for all fields
     return CustomerProduct(
       id: json['_id'] as String? ?? json['id'] as String? ?? '',
+      storeId: json['storeId'] as String? ?? '',
+      // <-- ADDED THIS
       title: json['title'] as String? ?? 'No Title',
       price: (json['price'] as num?)?.toDouble() ?? 0.0,
       description: json['description'] as String? ?? '',

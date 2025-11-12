@@ -5,11 +5,23 @@ class ProductApi {
 
   /// Fetches all products.
   /// Calls GET /api/customer/products
-  Future<Map<String, dynamic>> getAllProducts() async {
+  /// --- UPDATED: Now sends latitude and longitude as query params ---
+  Future<Map<String, dynamic>> getAllProducts({
+    double? lat,
+    double? lng,
+  }) async {
+    // Start with the base endpoint
+    String endpoint = '/api/customer/products';
+
+    // Append query parameters if lat and lng are provided
+    if (lat != null && lng != null) {
+      endpoint += '?lat=$lat&lng=$lng';
+    }
+
     // FIX: Changed from POST to GET and updated the endpoint.
     // This now matches your customerRoutes.js file.
     final response = await _apiClient.get(
-      '/api/customer/products',
+      endpoint, // Use the new endpoint with query params
       requireAuth: true, // Requires auth as it's a customer route
     );
     return response as Map<String, dynamic>;

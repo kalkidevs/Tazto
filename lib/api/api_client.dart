@@ -22,7 +22,7 @@ class ApiClient {
   // ---  DEVELOPMENT TOGGLE ---
   // Set this to 'true' to test against your local server.
   // Set this to 'false' to use your live 'onrender.com' server.
-  static const bool _isTestingLocally = false;
+  static const bool _isTestingLocally = true;
 
   // --- API URLS ---
   // Live URL

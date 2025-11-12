@@ -7,7 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:tazto/auth/signup_screen.dart';
 import 'package:tazto/features/customer/screens/customer_layout.dart';
-import 'package:tazto/features/seller/screens/screen_layout.dart';
+import 'package:tazto/features/seller/screens/seller_screen_layout.dart';
 import 'package:tazto/helper/dialog_helper.dart';
 
 import '../app/config/app_theme.dart';

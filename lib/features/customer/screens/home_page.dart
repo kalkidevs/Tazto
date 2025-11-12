@@ -82,8 +82,6 @@ class _HomePageState extends State<HomePage>
     final prov = context.watch<CustomerProvider>();
     final theme = Theme.of(context);
     final textTheme = theme.textTheme;
-    final colorScheme = theme.colorScheme;
-
     final user = prov.user;
     final locationMsg = prov.currentLocationMessage;
     String displayAddress;
@@ -359,7 +357,8 @@ class _HomePageState extends State<HomePage>
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                              builder: (_) => const AllCategoriesScreen()),
+                            builder: (_) => const AllCategoriesScreen(),
+                          ),
                         );
                       },
                       icon: const Text(
@@ -390,15 +389,20 @@ class _HomePageState extends State<HomePage>
                   mainAxisSpacing: 12.0,
                   childAspectRatio: 0.75,
                 ),
-                delegate: SliverChildBuilderDelegate((context, index) {
-                  if (index < prov.categories.length && index < 8) {
-                    return _EnhancedCategoryTile(
-                      category: prov.categories[index],
-                      index: index,
-                    );
-                  }
-                  return const SizedBox.shrink();
-                }, childCount: prov.categories.length > 8 ? 8 : prov.categories.length),
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    if (index < prov.availableCategories.length && index < 8) {
+                      return _EnhancedCategoryTile(
+                        category: prov.availableCategories[index],
+                        index: index,
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
+                  childCount: prov.availableCategories.length > 8
+                      ? 8
+                      : prov.availableCategories.length,
+                ),
               ),
             ),
 
@@ -555,7 +559,7 @@ class _HomePageState extends State<HomePage>
                             ),
                             const SizedBox(width: 8),
                             Text(
-                              'Best Deals',
+                              'Products Near You',
                               style: textTheme.titleLarge?.copyWith(
                                 fontWeight: FontWeight.bold,
                                 letterSpacing: 0.5,
@@ -658,28 +662,44 @@ class _HomePageState extends State<HomePage>
                 ),
               )
             else
-              SliverToBoxAdapter(
-                child: SizedBox(
-                  height: 290,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    itemCount: prov.products.length > 8
-                        ? 8
-                        : prov.products.length,
-                    itemBuilder: (context, index) {
-                      return SizedBox(
-                        width: 175,
-                        child: Padding(
-                          padding: const EdgeInsets.only(right: 12.0),
-                          child: ProductCard(product: prov.products[index]),
-                        ),
-                      );
-                    },
+              // --- UPDATED: Changed from horizontal list to vertical grid ---
+              SliverPadding(
+                padding: const EdgeInsets.all(16.0),
+                sliver: SliverGrid(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 12.0,
+                    mainAxisSpacing: 12.0,
+                    childAspectRatio:
+                        0.65, // Adjust this ratio to fit your ProductCard
                   ),
+                  delegate: SliverChildBuilderDelegate((context, index) {
+                    return ProductCard(product: prov.products[index]);
+                  }, childCount: prov.products.length),
                 ),
               ),
 
+            // SliverToBoxAdapter(
+            //   child: SizedBox(
+            //     height: 290,
+            //     child: ListView.builder(
+            //       scrollDirection: Axis.horizontal,
+            //       padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            //       itemCount: prov.products.length > 8
+            //           ? 8
+            //           : prov.products.length,
+            //       itemBuilder: (context, index) {
+            //         return SizedBox(
+            //           width: 175,
+            //           child: Padding(
+            //             padding: const EdgeInsets.only(right: 12.0),
+            //             child: ProductCard(product: prov.products[index]),
+            //           ),
+            //         );
+            //       },
+            //     ),
+            //   ),
+            // ),
             const SliverPadding(padding: EdgeInsets.only(bottom: 24)),
           ],
         ),
