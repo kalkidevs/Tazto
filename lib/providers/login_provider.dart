@@ -1,9 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tazto/api/api_client.dart';
 import 'package:tazto/api/auth_api.dart';
 import 'package:tazto/providers/customer_provider.dart';
 import 'package:tazto/providers/seller_provider.dart'; // Import provider
+
+enum LoginStatus {
+  loginSuccess,
+  firstTimeLogin, // For privacy consent
+  loginFailed,
+}
 
 class LoginProvider with ChangeNotifier {
   final AuthApi _authApi = AuthApi();
@@ -21,7 +28,7 @@ class LoginProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  Future<bool> login(
+  Future<LoginStatus> login(
     BuildContext context,
     String email,
     String password,
@@ -48,7 +55,6 @@ class LoginProvider with ChangeNotifier {
             token = data["token"] as String;
             sessionRole = selectedRole;
 
-            // --- THIS IS THE FIX ---
             // Use context.read() to get providers
             final customerProvider = context.read<CustomerProvider>();
             final sellerProvider = context.read<SellerProvider>();
@@ -59,18 +65,33 @@ class LoginProvider with ChangeNotifier {
               customerProvider.setUser(
                 userMap,
               ); // This triggers all customer data fetching
+
+              // --- NEW: Privacy Consent Check ---
+              final prefs = await SharedPreferences.getInstance();
+              final bool hasConsented =
+                  prefs.getBool('has_consented_to_privacy') ?? false;
+
+              isLoading = false;
+              notifyListeners();
+
+              if (hasConsented) {
+                return LoginStatus.loginSuccess;
+              } else {
+                return LoginStatus.firstTimeLogin;
+              }
+              // --- END NEW ---
             } else {
               // User is a seller
               customerProvider
                   .clearUser(); // Clear any old customer data (this NO LONGER deletes the token)
               sellerProvider
                   .fetchStoreProfile(); // This triggers seller data fetching
-            }
-            // --- END OF FIX ---
 
-            isLoading = false;
-            notifyListeners();
-            return true;
+              isLoading = false;
+              notifyListeners();
+              return LoginStatus
+                  .loginSuccess; // Sellers don't need the privacy screen
+            }
           } else {
             // Role validation failed
             throw ApiException(
@@ -87,13 +108,13 @@ class LoginProvider with ChangeNotifier {
       errorMessage = e.toString();
       isLoading = false;
       notifyListeners();
-      return false;
+      return LoginStatus.loginFailed; // --- UPDATED ---
     } catch (e) {
       debugPrint("Login Provider Error: ${e.toString()}");
       errorMessage = "An unexpected error occurred.";
       isLoading = false;
       notifyListeners();
-      return false;
+      return LoginStatus.loginFailed; // --- UPDATED ---
     }
   }
 

@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:tazto/auth/signup_screen.dart';
 import 'package:tazto/features/customer/screens/customer_layout.dart';
+import 'package:tazto/features/customer/screens/privacy_screen.dart';
 import 'package:tazto/features/seller/screens/seller_screen_layout.dart';
 import 'package:tazto/helper/dialog_helper.dart';
 
@@ -302,8 +303,8 @@ class _LoginPageState extends State<LoginPage>
     // Use read() here as we are in a function
     final prov = ctx.read<LoginProvider>();
 
-    // *** FIXED: Pass context to the login method ***
-    final success = await prov.login(
+    // *** UPDATED: Handle new LoginStatus enum ***
+    final status = await prov.login(
       ctx, // Pass the BuildContext
       _emailController.text.trim(),
       _passwordController.text.trim(),
@@ -311,28 +312,38 @@ class _LoginPageState extends State<LoginPage>
 
     if (!mounted) return;
 
-    if (success) {
-      // route based on selected role preference
-      if (prov.isCustomerLogin) {
+    switch (status) {
+      case LoginStatus.loginSuccess:
+      // Regular login, route based on role
+        if (prov.isCustomerLogin) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const CustomerLayout()),
+          );
+        } else {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const SellerLayout()),
+          );
+        }
+        break;
+      case LoginStatus.firstTimeLogin:
+      // New customer login, navigate to privacy consent screen
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => const CustomerLayout()),
+          MaterialPageRoute(builder: (_) => const PrivacyConsentScreen()),
         );
-      } else {
-        Navigator.pushReplacement(
+        break;
+      case LoginStatus.loginFailed:
+      // Show error dialog
+        showErrorDialog(
           context,
-          MaterialPageRoute(builder: (_) => const SellerLayout()),
+          "Login Failed",
+          prov.errorMessage ?? "An unknown error occurred.",
         );
-      }
-    } else {
-      // Use the new dialog helper
-      // The provider's errorMessage will have the user-friendly message
-      showErrorDialog(
-        context,
-        "Login Failed",
-        prov.errorMessage ?? "An unknown error occurred.",
-      );
+        break;
     }
+    // *** END UPDATE ***
   }
 }
 

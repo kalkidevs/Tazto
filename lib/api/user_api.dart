@@ -53,6 +53,7 @@ class UserApi {
     String? state,
     String? pincode,
     String? phone,
+    bool? isDefault, // <-- ADDED
   }) async {
     final body = {
       // Body only contains fields to update
@@ -62,6 +63,7 @@ class UserApi {
       if (state != null) 'state': state,
       if (pincode != null) 'pincode': pincode,
       if (phone != null) 'phone': phone,
+      if (isDefault != null) 'isDefault': isDefault, // <-- ADDED
     };
     if (body.isEmpty) {
       throw ArgumentError("No fields to update.");

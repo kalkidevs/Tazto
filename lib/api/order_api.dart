@@ -26,12 +26,10 @@ class OrderApi {
   }
 
   /// Fetches the order history for the logged-in user.
-  /// Calls POST /api/orders/myorders (as requested)
   Future<List<dynamic>> getMyOrders() async {
-    // *** FIXED: Changed from .get() to .post() with an empty body ***
-    final response = await _apiClient.post(
+    // *** FIXED: Changed from POST to GET to match customerRoutes.js ***
+    final response = await _apiClient.get(
       '/api/customer/orders',
-      {},
       requireAuth: true,
     );
 

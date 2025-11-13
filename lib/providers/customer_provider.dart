@@ -22,16 +22,15 @@ class CustomerProvider with ChangeNotifier {
   final UserApi _userApi = UserApi();
   final CategoryApi _categoryApi = CategoryApi();
 
-  // --- State Variables ---
   CustomerUser? _user;
   bool _isLoadingUser = false;
   String? _userError;
 
-  // --- ADDED: Location State ---
+  bool _isLoadingLocation = false;
   String? _currentLocationMessage;
   Position? _currentPosition;
-  List<CustomerCategory> _availableCategories = []; // <-- ADDED: Filtered list
-  List<CustomerCategory> _categories = [];
+  List<CustomerCategory> _availableCategories = [];
+  List<CustomerCategory> _masterCategories = [];
   bool _isLoadingCategories = false;
   String? _categoriesError;
   List<CustomerProduct> _products = [];
@@ -53,19 +52,14 @@ class CustomerProvider with ChangeNotifier {
 
   String? get userError => _userError;
 
-  // --- ADDED: Location Getter ---
+  bool get isLoadingLocation => _isLoadingLocation;
+
   String? get currentLocationMessage => _currentLocationMessage;
 
-  Position? get currentPosition =>
-      _currentPosition; // --- NEW: Getter for position
+  Position? get currentPosition => _currentPosition;
 
-  List<CustomerCategory> get categories => [..._categories];
+  List<CustomerCategory> get availableCategories => [..._availableCategories];
 
-  List<CustomerCategory> get availableCategories => [
-    ..._availableCategories,
-  ]; // <-- ADDED: Getter for filtered list
-
-  // --- ADDED: Category loading getters ---
   bool get isLoadingCategories => _isLoadingCategories;
 
   String? get categoriesError => _categoriesError;
@@ -103,13 +97,14 @@ class CustomerProvider with ChangeNotifier {
   Future<void> fetchUserProfile() async {
     if (_isLoadingUser) return;
     _isLoadingUser = true;
+    _isLoadingLocation = false; // Reset location loading
     _userError = null;
     if (_user == null) notifyListeners();
+
     try {
       final userData = await _userApi.getMyProfile();
       _user = CustomerUser.fromJson(userData);
       _userError = null;
-      // --- ADDED: Debug Print for Customer Login ---
       debugPrint("\n========== 💎 CUSTOMER LOGIN SUCCESS 💎 ==========");
       debugPrint("  👤 User: ${_user!.name} (ID: ${_user!.id})");
       debugPrint("  📧 Email: ${_user!.email}");
@@ -124,12 +119,16 @@ class CustomerProvider with ChangeNotifier {
         }
       }
       debugPrint("================================================\n");
-      // --- MODIFIED: Chain location check after profile fetch ---
+
+      // --- UPDATED: Set location loading state ---
+      _isLoadingLocation = true;
+      notifyListeners(); // Notify UI to show "Loading Location..."
+      // --- END UPDATE ---
+
       await checkAndFetchLocation();
       // Concurrently fetch cart and orders
       await Future.wait([
         fetchProducts(),
-        // fetchProducts will now wait for location internally
         fetchCart(),
         fetchMyOrders(),
         fetchCategories(),
@@ -140,18 +139,21 @@ class CustomerProvider with ChangeNotifier {
       _user = null;
       _cart = [];
       _orders = [];
-      _categories = [];
+      _masterCategories = [];
       _availableCategories = [];
+      throw e; // Re-throw to be caught by CustomerLayout
     } catch (e) {
       _handleGenericError(e, 'fetchUserProfile');
       _userError = 'An unexpected error occurred.';
       _user = null;
       _cart = [];
       _orders = [];
-      _categories = [];
+      _masterCategories = [];
       _availableCategories = [];
+      throw e; // Re-throw to be caught by CustomerLayout
     } finally {
       _isLoadingUser = false;
+      _isLoadingLocation = false; // Ensure this is false on exit
       notifyListeners();
     }
   }
@@ -164,27 +166,65 @@ class CustomerProvider with ChangeNotifier {
       return;
     }
 
-    // --- NEW: If user has an address, use that to get location info ---
-    // (This part is not fully implemented, but we set the message)
+    // --- NEW: Check if location services are enabled ---
+    _currentLocationMessage = "Checking location services...";
+    notifyListeners();
+    bool serviceEnabled;
+    try {
+      serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    } catch (e) {
+      // Handle potential platform exceptions
+      _currentLocationMessage = "Could not check location.";
+      notifyListeners();
+      throw ApiException(
+        'Could not check location services. Please ensure your location is on.',
+      );
+    }
+
+    if (!serviceEnabled) {
+      _currentLocationMessage = "Location is turned off";
+      notifyListeners();
+      // This is the error message the user requested
+      throw ApiException(
+        'Location services are disabled. Please turn on your location to find nearby stores.',
+      );
+    }
+    // --- END NEW CHECK ---
+
+    // 2. Set message based on saved addresses
     if (_user!.addresses.isNotEmpty) {
-      final firstAddress = _user!.addresses.first;
-      _currentLocationMessage = "${firstAddress.city}, ${firstAddress.pincode}";
-      // TO-DO: Get lat/lng from address if needed, or assume first address
-      // For now, we'll still try to get live location for product fetching
+      final defaultAddress = _user!.addresses.firstWhere(
+        (addr) => addr.isDefault,
+        orElse: () => _user!.addresses.first,
+      );
+      _currentLocationMessage =
+          "${defaultAddress.city}, ${defaultAddress.pincode}";
+      // --- ADDED: Set position from saved address ---
+      if (defaultAddress.coordinates.length == 2) {
+        _currentPosition = Position(
+          longitude: defaultAddress.coordinates[0],
+          // lng
+          latitude: defaultAddress.coordinates[1],
+          // lat
+          timestamp: DateTime.now(),
+          accuracy: 0.0,
+          altitude: 0.0,
+          altitudeAccuracy: 0.0,
+          heading: 0.0,
+          headingAccuracy: 0.0,
+          speed: 0.0,
+          speedAccuracy: 0.0,
+        );
+      }
+      // --- END ADDED ---
     } else {
       _currentLocationMessage = "Finding location...";
     }
     notifyListeners();
 
     try {
-      // 2. Check for permissions
-      bool serviceEnabled;
+      // 3. Check for permissions
       LocationPermission permission;
-
-      serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        throw Exception('Location services are disabled.');
-      }
 
       permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
@@ -200,13 +240,16 @@ class CustomerProvider with ChangeNotifier {
         );
       }
 
-      // 3. Get coordinates
-      final position = await Geolocator.getCurrentPosition();
-      _currentPosition = position; // --- NEW: Store the position object ---
-
-      // 4. Convert coordinates to address (placemark)
-      // Only update the message if user has NO addresses
+      // 4. Get coordinates
+      // --- UPDATED: Only get current location if no addresses exist ---
       if (_user!.addresses.isEmpty) {
+        _currentLocationMessage = "Getting current location...";
+        notifyListeners();
+        final position = await Geolocator.getCurrentPosition();
+        _currentPosition = position; // --- Store the position object ---
+
+        // 5. Convert coordinates to address (placemark)
+        // Only update the message if user has NO addresses
         final placemarks = await placemarkFromCoordinates(
           position.latitude,
           position.longitude,
@@ -221,14 +264,15 @@ class CustomerProvider with ChangeNotifier {
           throw Exception('No address found for location.');
         }
       }
+      // --- END UPDATE ---
     } catch (e) {
       _handleGenericError(e, 'checkAndFetchLocation');
       _currentPosition = null; // --- NEW: Clear position on error ---
       if (_user!.addresses.isEmpty) {
         _currentLocationMessage = "Select your address"; // Default on error
       }
-    } finally {
-      notifyListeners();
+      // Re-throw the error to be caught by fetchUserProfile and the UI
+      throw ApiException(e.toString().replaceAll("Exception: ", ""));
     }
   }
 
@@ -256,10 +300,12 @@ class CustomerProvider with ChangeNotifier {
       _user = CustomerUser.fromJson(
         updatedUserData,
       ); // Update user with new address list
-      // --- ADDED: Clear location message after adding an address ---
-      _currentLocationMessage = null;
-      // -----------------------------------------------------------
+
+      // --- ADDED: Refresh location and products after adding ---
+      _updateLocationFromDefaultAddress();
       notifyListeners();
+      fetchProducts(); // Fetch new products for the new address
+      // --- END ADDED ---
     } on ApiException catch (e) {
       _handleApiError(e, 'addAddress');
       throw Exception(e.message);
@@ -306,7 +352,12 @@ class CustomerProvider with ChangeNotifier {
         addressId: addressId,
       );
       _user = CustomerUser.fromJson(updatedUserData);
+
+      // --- ADDED: Refresh location and products after deleting ---
+      _updateLocationFromDefaultAddress();
       notifyListeners();
+      fetchProducts(); // Fetch new products
+      // --- END ADDED ---
     } on ApiException catch (e) {
       _handleApiError(e, 'deleteAddress');
       throw Exception(e.message);
@@ -317,6 +368,83 @@ class CustomerProvider with ChangeNotifier {
       notifyListeners();
     }
   }
+
+  Future<void> setDefaultAddress(String addressId) async {
+    if (_user == null) throw Exception("User not logged in.");
+
+    // Optimistic UI update
+    final originalAddresses = List<CustomerAddress>.from(_user!.addresses);
+    for (var addr in _user!.addresses) {
+      addr.isDefault = addr.id == addressId;
+    }
+    notifyListeners();
+
+    try {
+      final updatedUserData = await _userApi.updateAddress(
+        addressId: addressId,
+        isDefault: true,
+      );
+      _user = CustomerUser.fromJson(updatedUserData);
+
+      // --- ADDED: Refresh location and products after setting default ---
+      _updateLocationFromDefaultAddress();
+      notifyListeners(); // Notify UI of new address string
+      fetchProducts(); // Fetch new products
+      // --- END ADDED ---
+    } on ApiException catch (e) {
+      _user!.addresses = originalAddresses; // Revert on failure
+      _handleApiError(e, 'setDefaultAddress');
+      throw Exception(e.message);
+    } catch (e) {
+      _user!.addresses = originalAddresses; // Revert on failure
+      _handleGenericError(e, 'setDefaultAddress');
+      throw Exception("An unexpected error occurred.");
+    } finally {
+      notifyListeners();
+    }
+  }
+
+  /// --- ADDED: Helper to update location from the user's default address ---
+  void _updateLocationFromDefaultAddress() {
+    if (_user == null || _user!.addresses.isEmpty) {
+      _currentPosition = null;
+      _currentLocationMessage = "Select your address";
+      return;
+    }
+
+    final defaultAddress = _user!.addresses.firstWhere(
+      (addr) => addr.isDefault,
+      orElse: () => _user!.addresses.first,
+    );
+
+    _currentLocationMessage =
+        "${defaultAddress.city}, ${defaultAddress.pincode}";
+
+    if (defaultAddress.coordinates.length == 2) {
+      _currentPosition = Position(
+        longitude: defaultAddress.coordinates[0],
+        // lng
+        latitude: defaultAddress.coordinates[1],
+        // lat
+        timestamp: DateTime.now(),
+        accuracy: 0.0,
+        altitude: 0.0,
+        altitudeAccuracy: 0.0,
+        heading: 0.0,
+        headingAccuracy: 0.0,
+        speed: 0.0,
+        speedAccuracy: 0.0,
+      );
+    } else {
+      // Address has no coordinates, clear position to force location check
+      _currentPosition = null;
+      // We could trigger checkAndFetchLocation() here, but it might be better
+      // to rely on the fetchProducts() call to handle the null position.
+      debugPrint("Default address has no coordinates. Products may not load.");
+    }
+  }
+
+  // --- END ADDED ---
 
   Future<void> updateUserProfile({String? name, String? phone}) async {
     if (_user == null) throw Exception("User not logged in.");
@@ -353,13 +481,13 @@ class CustomerProvider with ChangeNotifier {
       // --- MODIFIED: Also find uncategorized ---
       if (lowerCategoryName == 'uncategorized') {
         return _products.where((product) {
-          final productCategory = product.category?.toLowerCase().trim() ?? '';
+          final productCategory = product.category.toLowerCase().trim();
           return productCategory.isEmpty;
         }).toList();
       }
       // -----------------------------------------
       return _products.where((product) {
-        final productCategory = product.category?.toLowerCase().trim() ?? '';
+        final productCategory = product.category.toLowerCase().trim();
         return productCategory == lowerCategoryName;
       }).toList();
     } catch (e) {
@@ -381,7 +509,7 @@ class CustomerProvider with ChangeNotifier {
           ? data['categories'] as List<dynamic>
           : [];
 
-      _categories = categoryList
+      _masterCategories = categoryList
           .map((json) {
             try {
               return CustomerCategory.fromJson(json as Map<String, dynamic>);
@@ -397,15 +525,37 @@ class CustomerProvider with ChangeNotifier {
     } on ApiException catch (e) {
       _handleApiError(e, 'fetchCategories');
       _categoriesError = e.message;
-      _categories = [];
+      _masterCategories = [];
     } catch (e) {
       _handleGenericError(e, 'fetchCategories');
       _categoriesError = 'An unexpected error occurred.';
-      _categories = [];
+      _masterCategories = [];
     } finally {
       _isLoadingCategories = false;
       notifyListeners(); // Notify end
     }
+  }
+
+  void _getAvailableCategories() {
+    if (_products.isEmpty) {
+      _availableCategories = [];
+      notifyListeners();
+      return;
+    }
+
+    // Get all unique category names from the loaded product list
+    final productCategoryNames = _products
+        .map((p) => p.category.toLowerCase().trim())
+        .toSet();
+
+    // Filter the master list to only include categories that exist in products
+    _availableCategories = _masterCategories.where((masterCategory) {
+      return productCategoryNames.contains(
+        masterCategory.name.toLowerCase().trim(),
+      );
+    }).toList();
+
+    notifyListeners();
   }
 
   Future<void> fetchProducts() async {
@@ -419,6 +569,7 @@ class CustomerProvider with ChangeNotifier {
       if (_currentPosition == null) {
         debugPrint("fetchProducts: Position is null, waiting for location...");
         // This relies on fetchUserProfile calling checkAndFetchLocation first
+        // or a default address being set.
         // We add a small safety delay
         await Future.delayed(const Duration(milliseconds: 500));
         if (_currentPosition == null) {
@@ -475,24 +626,19 @@ class CustomerProvider with ChangeNotifier {
       }
       debugPrint("================================================\n");
       // -------------------------------------
-      final productCategoryNames = _products
-          .map((p) => p.category.toLowerCase().trim())
-          .toSet();
 
-      _availableCategories = _categories
-          .where(
-            (c) => productCategoryNames.contains(c.name.toLowerCase().trim()),
-          )
-          .toList();
       _productsError = null;
+      _getAvailableCategories(); // Filter categories *after* products are loaded
     } on ApiException catch (e) {
       _handleApiError(e, 'fetchProducts');
       _productsError = e.message;
       _products = [];
+      _getAvailableCategories(); // Clear available categories on error
     } catch (e) {
       _handleGenericError(e, 'fetchProducts');
       _productsError = 'An unexpected error occurred.';
       _products = [];
+      _getAvailableCategories(); // Clear available categories on error
     } finally {
       _isLoadingProducts = false;
       notifyListeners();
@@ -686,17 +832,14 @@ class CustomerProvider with ChangeNotifier {
       notifyListeners();
       return false;
     }
-    final CustomerAddress? shippingAddress =
-        _user?.addresses.isNotEmpty ?? false ? _user!.addresses.first : null;
-    if (shippingAddress == null) {
-      _placeOrderError = "Please add a shipping address.";
-      notifyListeners();
-      return false;
-    }
     if (_isPlacingOrder) return false;
     _isPlacingOrder = true;
     _placeOrderError = null;
     notifyListeners();
+
+    // Use the selectedAddress passed from the UI
+    final CustomerAddress? shippingAddress = selectedAddress;
+
     final List<Map<String, dynamic>> orderItems = _cart
         .map(
           (ci) => {
@@ -713,11 +856,11 @@ class CustomerProvider with ChangeNotifier {
         items: orderItems,
         totalAmount: calculatedTotal,
         shippingAddress: {
-          'street': shippingAddress.street,
-          'city': shippingAddress.city,
-          'state': shippingAddress.state,
-          'pincode': shippingAddress.pincode,
-          'phone': shippingAddress.phone ?? _user?.phone,
+          'street': shippingAddress?.street,
+          'city': shippingAddress?.city,
+          'state': shippingAddress?.state,
+          'pincode': shippingAddress?.pincode,
+          'phone': shippingAddress?.phone ?? _user?.phone,
         },
       );
       try {
@@ -806,12 +949,13 @@ class CustomerProvider with ChangeNotifier {
     _currentLocationMessage = null;
     _currentPosition = null; // --- NEW: Clear position on logout ---
     _isLoadingUser = false;
+    _masterCategories = [];
+    _availableCategories = [];
     _categoriesError = null;
     _isLoadingProducts = false;
     _isLoadingCart = false;
     _isLoadingOrders = false;
     _isLoadingCategories = false;
-    _availableCategories = [];
     // --- THIS LINE IS THE BUG, REMOVE IT ---
     // ApiClient().deleteToken();
     // --- END BUG ---

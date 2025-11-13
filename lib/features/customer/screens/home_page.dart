@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:tazto/app/config/app_theme.dart';
+import 'package:tazto/features/customer/models/address_selection_model.dart';
 import 'package:tazto/features/customer/models/customer_category_model.dart';
 import 'package:tazto/features/customer/screens/all_category_screen.dart';
 import 'package:tazto/providers/customer_provider.dart';
@@ -9,7 +10,7 @@ import 'package:tazto/providers/customer_provider.dart';
 import '../widgets/product_card_widget.dart';
 import 'cart_page.dart';
 import 'category_products_screen.dart';
-import 'search_page.dart';
+import 'customer_search_page.dart';
 
 IconData getCategoryIcon(String? category) {
   if (category == null) return Icons.category;
@@ -44,9 +45,7 @@ IconData getCategoryIcon(String? category) {
 }
 
 class HomePage extends StatefulWidget {
-  final VoidCallback onAddressTap;
-
-  const HomePage({super.key, required this.onAddressTap});
+  const HomePage({super.key});
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -71,6 +70,17 @@ class _HomePageState extends State<HomePage>
     _controller.forward();
   }
 
+  void _showAddressModal() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true, // Allows sheet to be non-fullscreen
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return const AddressSelectionModal();
+      },
+    );
+  }
+
   @override
   void dispose() {
     _controller.dispose();
@@ -85,13 +95,20 @@ class _HomePageState extends State<HomePage>
     final user = prov.user;
     final locationMsg = prov.currentLocationMessage;
     String displayAddress;
+    String displayLabel;
 
     if (user != null && user.addresses.isNotEmpty) {
-      final firstAddress = user.addresses.first;
-      displayAddress = '${firstAddress.street}, ${firstAddress.city}';
+      final defaultAddress = user.addresses.firstWhere(
+        (addr) => addr.isDefault,
+        orElse: () => user.addresses.first,
+      );
+      displayLabel = defaultAddress.label;
+      displayAddress = '${defaultAddress.street}, ${defaultAddress.city}';
     } else if (locationMsg != null) {
+      displayLabel = 'Your Location';
       displayAddress = locationMsg;
     } else {
+      displayLabel = 'Set Location';
       displayAddress = 'Select your address';
     }
 
@@ -100,7 +117,11 @@ class _HomePageState extends State<HomePage>
       body: RefreshIndicator(
         onRefresh: () async {
           await prov.fetchUserProfile();
-          _controller.forward(from: 0);
+          // --- FIX: Added mounted check ---
+          if (mounted) {
+            _controller.forward(from: 0);
+          }
+          // --- END FIX ---
         },
         color: AppColors.primary,
         child: CustomScrollView(
@@ -113,49 +134,55 @@ class _HomePageState extends State<HomePage>
               pinned: true,
               floating: true,
               titleSpacing: 0,
-              leading: Padding(
-                padding: const EdgeInsets.only(left: 16.0),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.location_on,
-                    color: AppColors.primary,
-                    size: 20,
-                  ),
-                ),
-              ),
-              title: InkWell(
-                onTap: widget.onAddressTap,
-                borderRadius: BorderRadius.circular(8),
+              leadingWidth: MediaQuery.of(context).size.width * 0.7,
+              // Give it more space
+              leading: InkWell(
+                onTap: _showAddressModal, // <-- TAP TO OPEN MODAL
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  padding: const EdgeInsets.only(left: 16.0),
+                  child: Row(
                     children: [
-                      Row(
-                        children: [
-                          Text(
-                            user?.addresses.firstOrNull?.label ?? 'Home',
-                            style: textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          Icon(Icons.keyboard_arrow_down, size: 18),
-                        ],
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        displayAddress,
-                        style: textTheme.bodySmall?.copyWith(
-                          color: Colors.grey[600],
-                          fontSize: 11,
+                      Container(
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withOpacity(0.1),
+                          shape: BoxShape.circle,
                         ),
-                        overflow: TextOverflow.ellipsis,
+                        child: Icon(
+                          Icons.location_on,
+                          color: AppColors.primary,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Row(
+                              children: [
+                                Text(
+                                  displayLabel, // Use new label
+                                  style: textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                const Icon(Icons.keyboard_arrow_down, size: 18),
+                              ],
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              displayAddress,
+                              style: textTheme.bodySmall?.copyWith(
+                                color: Colors.grey[600],
+                                fontSize: 11,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),

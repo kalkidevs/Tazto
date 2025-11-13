@@ -7,6 +7,8 @@ import 'package:tazto/features/customer/screens/category_products_screen.dart';
 import 'package:tazto/features/customer/widgets/custom_appbar.dart';
 import 'package:tazto/providers/customer_provider.dart';
 
+import '../widgets/product_card_widget.dart';
+
 
 class AllCategoriesScreen extends StatelessWidget {
   const AllCategoriesScreen({super.key});

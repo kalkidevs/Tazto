@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:tazto/app/config/app_theme.dart';
 import 'package:tazto/features/customer/features/01_address/screens/add_new_address.dart';
+import 'package:tazto/features/customer/features/01_address/screens/customer_my_address_screen.dart';
 import 'package:tazto/features/customer/models/customer_address_model.dart';
 import 'package:tazto/features/customer/models/customer_user_model.dart';
+import 'package:tazto/features/customer/screens/customer_layout.dart';
 import 'package:tazto/providers/customer_provider.dart';
 
 import '../widgets/customer_profile_widgets.dart';
@@ -31,7 +33,12 @@ class ProfileQuickStats extends StatelessWidget {
               label: 'Orders',
               value: '${provider.orders.length}',
               color: Colors.blue,
-              onTap: () => debugPrint('Navigate to orders'),
+              onTap: () {
+                context
+                    .findAncestorStateOfType<CustomerLayoutState>()
+                    ?.changeTab(1);
+                debugPrint('Navigate to orders');
+              },
             ),
           ),
           const SizedBox(width: 12),
@@ -51,7 +58,12 @@ class ProfileQuickStats extends StatelessWidget {
               label: 'Addresses',
               value: '${user.addresses.length}',
               color: Colors.green,
-              onTap: () => debugPrint('Navigate to addresses'),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const MyAddressesPage()),
+                );
+              },
             ),
           ),
         ],
@@ -411,7 +423,10 @@ class ProfileOrdersSection extends StatelessWidget {
       title: 'My Orders',
       icon: Icons.shopping_cart_outlined,
       trailing: TextButton(
-        onPressed: () => debugPrint('Navigate to all orders'),
+        onPressed: () {
+          context.findAncestorStateOfType<CustomerLayoutState>()?.changeTab(1);
+          debugPrint('Navigate to all orders');
+        },
         child: const Text(
           'View All',
           style: TextStyle(

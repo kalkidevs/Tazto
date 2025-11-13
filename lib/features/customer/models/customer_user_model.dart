@@ -1,7 +1,7 @@
-import 'package:flutter/foundation.dart'; // For debugPrint
+import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 
-import 'customer_address_model.dart'; // Import Address model
+import 'customer_address_model.dart';
 
 class CustomerUser {
   final String id;
@@ -41,6 +41,11 @@ class CustomerUser {
           })
           .whereType<CustomerAddress>()
           .toList(); // Filter out any nulls
+      parsedAddresses.sort((a, b) {
+        if (a.isDefault && !b.isDefault) return -1;
+        if (!a.isDefault && b.isDefault) return 1;
+        return 0;
+      });
     }
 
     // Handle potential _id vs id key
