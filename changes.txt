@@ -1,0 +1,4 @@
+state mgmt open stores hrs
+add lazy loader for max product 3-4k product
+Add .xls support if needed
+may be some fields will be empty

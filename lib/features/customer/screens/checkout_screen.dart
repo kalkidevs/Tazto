@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:tazto/app/config/app_theme.dart';
+
 // Import your custom appbar
 import 'package:tazto/features/customer/widgets/custom_appbar.dart';
 import 'package:tazto/providers/customer_provider.dart';
 import 'package:tazto/widgets/error_dialog.dart';
 
+import '../features/01_address/screens/add_new_address.dart';
 import '../models/cart_itemMdl.dart';
 import '../models/customer_address_model.dart'; // Import Address model
 
@@ -18,18 +20,58 @@ class CheckoutPage extends StatefulWidget {
 }
 
 class _CheckoutPageState extends State<CheckoutPage> {
-  // --- ADDED: State variables to hold selections ---
+  // State variables to hold selections
   CustomerAddress? _selectedAddress;
   String _selectedPaymentMethod = 'card'; // Default to 'card'
 
   @override
   void initState() {
     super.initState();
-    // --- ADDED: Initialize the selected address ---
-    // Set the initial selected address to the first one in the user's list
+    // Use addPostFrameCallback to handle navigation or data fetching safely
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkAddresses();
+    });
+  }
+
+  void _checkAddresses() {
     final provider = context.read<CustomerProvider>();
-    if (provider.user?.addresses.isNotEmpty ?? false) {
-      _selectedAddress = provider.user!.addresses.first;
+    final addresses = provider.user?.addresses ?? [];
+
+    if (addresses.isEmpty) {
+      // Show snackbar instruction
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Please add a delivery address to proceed.',
+            style: GoogleFonts.poppins(),
+          ),
+          backgroundColor: Colors.orange,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      // Auto-navigate to Add Address Screen
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const AddAddressPage()),
+      ).then((_) {
+        // After returning, refresh selection
+        _refreshSelection();
+      });
+    } else {
+      _refreshSelection();
+    }
+  }
+
+  void _refreshSelection() {
+    final provider = context.read<CustomerProvider>();
+    if (mounted && (provider.user?.addresses.isNotEmpty ?? false)) {
+      setState(() {
+        // Select default if available, else first
+        _selectedAddress = provider.user!.addresses.firstWhere(
+          (a) => a.isDefault,
+          orElse: () => provider.user!.addresses.first,
+        );
+      });
     }
   }
 
@@ -44,7 +86,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
     const double discount = 2.0;
     final double grandTotal = cartTotal - discount + deliveryFee;
 
-    // --- UPDATED: Use the state variable ---
     // Safely get the selected address from our state
     final CustomerAddress? shippingAddress = _selectedAddress;
 
@@ -161,15 +202,23 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   ),
                   // --- UPDATED: Build address card based on state variable ---
                   child: shippingAddress == null
-                      ? const ListTile(
-                          title: Text('No address found'),
-                          subtitle: Text(
-                            'Please add an address in your profile.',
+                      ? ListTile(
+                          title: const Text('No address found'),
+                          subtitle: const Text(
+                            'Please add an address to proceed.',
                           ),
-                          leading: Icon(
-                            Icons.location_off_outlined,
-                            color: Colors.red,
+                          leading: const Icon(
+                            Icons.add_location_alt_outlined,
+                            color: AppColors.primary,
                           ),
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const AddAddressPage(),
+                              ),
+                            ).then((_) => _refreshSelection());
+                          },
                         )
                       : ListTile(
                           leading: const Icon(
@@ -263,7 +312,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                         bool success = await context
                             .read<CustomerProvider>()
                             .placeOrder(
-                              // --- ADDED: Pass selected address to provider ---
+                              // --- Pass selected address to provider ---
                               selectedAddress: _selectedAddress!,
                             );
                         if (success && context.mounted) {
@@ -565,17 +614,15 @@ class _CheckoutPageState extends State<CheckoutPage> {
     );
   }
 
-  // --- UPDATED: Address selection dialog is now stateful ---
+  // Address selection dialog
   void _showAddressSelectionDialog(BuildContext context) {
     final provider = context.read<CustomerProvider>();
     final addresses = provider.user!.addresses;
-    // Temporary variable to hold selection within the dialog
     String? tempSelectedAddressId = _selectedAddress?.id;
 
     showDialog(
       context: context,
       builder: (BuildContext context) {
-        // Use StatefulBuilder to manage the dialog's internal state
         return StatefulBuilder(
           builder: (context, dialogSetState) {
             return AlertDialog(
@@ -619,10 +666,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
                               '${address.street}, ${address.city}${address.state != null ? ', ${address.state}' : ''} - ${address.pincode}',
                             ),
                             value: address.id,
-                            // Use the dialog's state variable
                             groupValue: tempSelectedAddressId,
                             onChanged: (value) {
-                              // Update the dialog's state
                               dialogSetState(() {
                                 tempSelectedAddressId = value;
                               });
@@ -639,27 +684,25 @@ class _CheckoutPageState extends State<CheckoutPage> {
                     style: GoogleFonts.poppins(color: Colors.grey),
                   ),
                 ),
-                // --- ADDED: Select Button ---
-                ElevatedButton(
-                  onPressed: () {
-                    if (tempSelectedAddressId != null) {
-                      // Find the full address object
-                      final newSelectedAddress = addresses.firstWhere(
-                        (addr) => addr.id == tempSelectedAddressId,
-                      );
-                      // Update the main page's state
-                      setState(() {
-                        _selectedAddress = newSelectedAddress;
-                      });
-                    }
-                    Navigator.of(context).pop();
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
+                if (addresses.isNotEmpty)
+                  ElevatedButton(
+                    onPressed: () {
+                      if (tempSelectedAddressId != null) {
+                        final newSelectedAddress = addresses.firstWhere(
+                          (addr) => addr.id == tempSelectedAddressId,
+                        );
+                        setState(() {
+                          _selectedAddress = newSelectedAddress;
+                        });
+                      }
+                      Navigator.of(context).pop();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: Text('Select', style: GoogleFonts.poppins()),
                   ),
-                  child: Text('Select', style: GoogleFonts.poppins()),
-                ),
               ],
             );
           },
@@ -668,15 +711,13 @@ class _CheckoutPageState extends State<CheckoutPage> {
     );
   }
 
-  // --- UPDATED: Payment method selection dialog is now stateful ---
+  // Payment method selection dialog
   void _showPaymentMethodSelectionDialog(BuildContext context) {
-    // Temporary variable to hold selection within the dialog
     String? tempSelectedPayment = _selectedPaymentMethod;
 
     showDialog(
       context: context,
       builder: (BuildContext context) {
-        // Use StatefulBuilder to manage the dialog's internal state
         return StatefulBuilder(
           builder: (context, dialogSetState) {
             return AlertDialog(
@@ -730,7 +771,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 ),
                 ElevatedButton(
                   onPressed: () {
-                    // Update the main page's state
                     if (tempSelectedPayment != null) {
                       setState(() {
                         _selectedPaymentMethod = tempSelectedPayment!;
@@ -752,7 +792,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
     );
   }
 
-  // --- ADDED: Helper functions for payment method ---
   String _getPaymentMethodName(String methodKey) {
     switch (methodKey) {
       case 'cod':

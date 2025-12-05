@@ -1,28 +1,27 @@
-
-
 class Store {
   final String id;
   final String ownerId;
-  String? ownerName; // <-- ADDED
+  String? ownerName;
   String storeName;
-  String? storeDescription; // From UI
+  String? storeDescription;
   String address;
   String pincode;
-  String? phone; // From UI
-  String? email; // From UI (likely owner's email)
-  String? gstNumber; // From UI
-  String? storeLogoUrl; // From UI
+  String? phone;
+  String? email;
+  String? gstNumber;
+  String? storeLogoUrl;
   bool isOpen;
-  bool autoAcceptOrders; // From UI
-  int avgPreparationTime; // From UI
-  double minOrderValue; // From UI
+  bool autoAcceptOrders;
+  int avgPreparationTime;
+  double minOrderValue;
   final List<double> coordinates; // [lng, lat]
-  final WeeklySchedule schedule; // From UI
+  final WeeklySchedule schedule;
+  final NotificationPreferences notificationPreferences; // <-- ADDED
 
   Store({
     required this.id,
     required this.ownerId,
-    this.ownerName, // <-- ADDED
+    this.ownerName,
     required this.storeName,
     this.storeDescription,
     required this.address,
@@ -37,8 +36,11 @@ class Store {
     this.minOrderValue = 0,
     List<double>? coordinates,
     WeeklySchedule? schedule,
+    NotificationPreferences? notificationPreferences, // <-- ADDED
   }) : coordinates = coordinates ?? [0, 0],
-       schedule = schedule ?? WeeklySchedule.fromJson({});
+       schedule = schedule ?? WeeklySchedule.fromJson({}),
+       notificationPreferences =
+           notificationPreferences ?? NotificationPreferences.defaults();
 
   factory Store.fromJson(Map<String, dynamic> json) {
     // Extract location coordinates
@@ -57,7 +59,6 @@ class Store {
       id: json['_id'] as String? ?? json['id'] as String? ?? '',
       ownerId: json['ownerId'] as String? ?? '',
       ownerName: json['ownerName'] as String?,
-      // <-- ADDED
       storeName: json['storeName'] as String? ?? 'N/A',
       storeDescription: json['storeDescription'] as String?,
       address: json['address'] as String? ?? '',
@@ -74,10 +75,14 @@ class Store {
       schedule: json['schedule'] != null
           ? WeeklySchedule.fromJson(json['schedule'] as Map<String, dynamic>)
           : WeeklySchedule.fromJson({}),
+      notificationPreferences: json['notificationPreferences'] != null
+          ? NotificationPreferences.fromJson(
+              json['notificationPreferences'] as Map<String, dynamic>,
+            )
+          : NotificationPreferences.defaults(),
     );
   }
 
-  // Method to create a map for updates, only including non-null values
   Map<String, dynamic> toUpdateJson() {
     return {
       'storeName': storeName,
@@ -93,6 +98,48 @@ class Store {
       'avgPreparationTime': avgPreparationTime,
       'minOrderValue': minOrderValue,
       'schedule': schedule.toJson(),
+      'notificationPreferences': notificationPreferences.toJson(), // <-- ADDED
+    };
+  }
+}
+
+// --- NEW CLASS ---
+class NotificationPreferences {
+  final bool email;
+  final bool sms;
+  final bool newOrders;
+  final bool lowStock;
+  final bool payments;
+
+  NotificationPreferences({
+    this.email = true,
+    this.sms = false,
+    this.newOrders = true,
+    this.lowStock = true,
+    this.payments = true,
+  });
+
+  factory NotificationPreferences.defaults() {
+    return NotificationPreferences();
+  }
+
+  factory NotificationPreferences.fromJson(Map<String, dynamic> json) {
+    return NotificationPreferences(
+      email: json['email'] as bool? ?? true,
+      sms: json['sms'] as bool? ?? false,
+      newOrders: json['newOrders'] as bool? ?? true,
+      lowStock: json['lowStock'] as bool? ?? true,
+      payments: json['payments'] as bool? ?? true,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'email': email,
+      'sms': sms,
+      'newOrders': newOrders,
+      'lowStock': lowStock,
+      'payments': payments,
     };
   }
 }
@@ -124,9 +171,7 @@ class WeeklySchedule {
       thursday: DaySchedule.fromJson(json['thursday'] ?? {}),
       friday: DaySchedule.fromJson(json['friday'] ?? {}),
       saturday: DaySchedule.fromJson(json['saturday'] ?? {}),
-      sunday: DaySchedule.fromJson(
-        json['sunday'] ?? {'isOpen': false},
-      ), // Closed by default
+      sunday: DaySchedule.fromJson(json['sunday'] ?? {'isOpen': false}),
     );
   }
 
@@ -145,8 +190,8 @@ class WeeklySchedule {
 
 class DaySchedule {
   bool isOpen;
-  String openTime; // "HH:mm" format
-  String closeTime; // "HH:mm" format
+  String openTime;
+  String closeTime;
 
   DaySchedule({
     this.isOpen = true,

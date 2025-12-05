@@ -1,7 +1,9 @@
 import 'package:flutter/foundation.dart'; // For debugPrint
+import 'package:tazto/features/customer/models/rating.dart';
 
 // Ensure CartItem model is imported correctly
 import 'cart_itemMdl.dart';
+
 // Ensure Product model is imported correctly for CartItem's product
 import 'customer_product_model.dart';
 
@@ -24,9 +26,6 @@ OrderStatus _parseOrderStatus(String? statusString) {
     case 'cancelled':
       return OrderStatus.cancelled;
     default:
-      debugPrint(
-        "Warning: Unknown order status received: $statusString. Defaulting to Pending.",
-      );
       return OrderStatus.pending; // Default fallback
   }
 }
@@ -60,20 +59,48 @@ class CustomerOrder {
       parsedItems = (json['items'] as List)
           .map((itemJson) {
             try {
-              // Backend sends populated product details within items
-              // We need to parse this into our local Product model first
-              final productData =
-                  itemJson['productId'] as Map<String, dynamic>?;
-              if (productData == null)
-                throw Exception('Missing productId object in order item');
+              if (itemJson is! Map<String, dynamic>) return null;
 
-              final product = CustomerProduct.fromJson(
-                productData,
-              ); // Use Product.fromJson
+              CustomerProduct product;
+
+              // --- ROBUST PARSING LOGIC ---
+              // Check if productId is a fully populated Map (Backend populate worked)
+              if (itemJson['productId'] is Map<String, dynamic>) {
+                product = CustomerProduct.fromJson(
+                  itemJson['productId'] as Map<String, dynamic>,
+                );
+              } else {
+                // FALLBACK: productId is a String (or null), meaning populate failed
+                // or product was deleted. We reconstruct a temporary product object
+                // using the snapshot data (title, price) stored in the order item.
+                final String pId = itemJson['productId'] is String
+                    ? itemJson['productId']
+                    : 'unknown_id';
+
+                final String pTitle = itemJson['title'] ?? 'Unknown Product';
+                final double pPrice =
+                    (itemJson['price'] as num?)?.toDouble() ?? 0.0;
+
+                product = CustomerProduct(
+                  id: pId,
+                  storeId: '',
+                  // Not available in snapshot, leave empty
+                  title: pTitle,
+                  price: pPrice,
+                  description: 'Product details unavailable',
+                  category: 'Uncategorized',
+                  stock: 0,
+                  rating: Rating(rate: 0, count: 0),
+                  imageURL: null, // Image likely lost if product deleted
+                );
+              }
+
               final quantity = itemJson['quantity'] as int? ?? 1;
-              // Generate a local unique ID for CartItem model consistency
+
+              // Create a unique ID for the CartItem (UI key purposes)
               final cartItemId =
                   product.id + DateTime.now().microsecondsSinceEpoch.toString();
+
               return CartItem(
                 id: cartItemId,
                 product: product,
@@ -101,23 +128,18 @@ class CustomerOrder {
     }
 
     return CustomerOrder(
-      id: json['_id'] as String,
-      // Backend uses _id
+      id: json['_id'] as String? ?? '',
       items: parsedItems,
       totalAmount: (json['totalAmount'] as num?)?.toDouble() ?? 0.0,
-      // Safe parsing for total
       orderDate: parsedDate,
       status: _parseOrderStatus(json['status'] as String?),
-      // Use helper to parse status
       shippingAddress: json['shippingAddress'] as Map<String, dynamic>?,
-      // Store address as map
-      paymentMethod: json['paymentMethod'] as String?, // Payment method
+      paymentMethod: json['paymentMethod'] as String?,
     );
   }
 
   // Optional: Helper method to format date nicely
   String get formattedOrderDate {
-    // Use intl package for better formatting later
     return '${orderDate.day}/${orderDate.month}/${orderDate.year}';
   }
 

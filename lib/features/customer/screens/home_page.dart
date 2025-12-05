@@ -70,10 +70,36 @@ class _HomePageState extends State<HomePage>
     _controller.forward();
   }
 
+  void _onLocationTap() {
+    final prov = context.read<CustomerProvider>();
+    final errorMsg = prov.currentLocationMessage;
+
+    if (errorMsg != null && errorMsg.toLowerCase().contains('disabled')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            errorMsg,
+            style: GoogleFonts.poppins(color: Colors.white),
+          ),
+          backgroundColor: Colors.red,
+          action: SnackBarAction(
+            label: 'Retry',
+            textColor: Colors.white,
+            onPressed: () {
+              prov.checkAndFetchLocation();
+            },
+          ),
+        ),
+      );
+    } else {
+      _showAddressModal();
+    }
+  }
+
   void _showAddressModal() {
     showModalBottomSheet(
       context: context,
-      isScrollControlled: true, // Allows sheet to be non-fullscreen
+      isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
         return const AddressSelectionModal();
@@ -117,16 +143,13 @@ class _HomePageState extends State<HomePage>
       body: RefreshIndicator(
         onRefresh: () async {
           await prov.fetchUserProfile();
-          // --- FIX: Added mounted check ---
           if (mounted) {
             _controller.forward(from: 0);
           }
-          // --- END FIX ---
         },
         color: AppColors.primary,
         child: CustomScrollView(
           slivers: [
-            // Enhanced App Bar with glassmorphism effect
             SliverAppBar(
               backgroundColor: AppColors.background.withOpacity(0.95),
               foregroundColor: AppColors.textPrimary,
@@ -135,9 +158,8 @@ class _HomePageState extends State<HomePage>
               floating: true,
               titleSpacing: 0,
               leadingWidth: MediaQuery.of(context).size.width * 0.7,
-              // Give it more space
               leading: InkWell(
-                onTap: _showAddressModal, // <-- TAP TO OPEN MODAL
+                onTap: _onLocationTap,
                 child: Padding(
                   padding: const EdgeInsets.only(left: 16.0),
                   child: Row(
@@ -162,7 +184,7 @@ class _HomePageState extends State<HomePage>
                             Row(
                               children: [
                                 Text(
-                                  displayLabel, // Use new label
+                                  displayLabel,
                                   style: textTheme.titleSmall?.copyWith(
                                     fontWeight: FontWeight.w700,
                                     letterSpacing: 0.5,
@@ -189,7 +211,6 @@ class _HomePageState extends State<HomePage>
                 ),
               ),
               actions: [
-                // Cart badge with animation
                 Stack(
                   children: [
                     IconButton(
@@ -201,7 +222,6 @@ class _HomePageState extends State<HomePage>
                         );
                       },
                     ),
-                    // --- MODIFIED: Changed from prov.user?.cart... to prov.cart ---
                     if (prov.cart.isNotEmpty)
                       Positioned(
                         right: 8,
@@ -224,7 +244,6 @@ class _HomePageState extends State<HomePage>
                             minHeight: 16,
                           ),
                           child: Text(
-                            // --- MODIFIED: Changed from prov.user?.cart... to prov.cartItemCount ---
                             '${prov.cartItemCount}',
                             style: const TextStyle(
                               color: Colors.white,
@@ -241,7 +260,6 @@ class _HomePageState extends State<HomePage>
               ],
             ),
 
-            // Enhanced Search Bar with shadow
             SliverPadding(
               padding: const EdgeInsets.symmetric(
                 horizontal: 16.0,
@@ -346,7 +364,56 @@ class _HomePageState extends State<HomePage>
               ),
             ),
 
-            // Enhanced Category Section Header
+            // --- NEW: Connected Store Indicator ---
+            // Updated: Show banner if products exist, using a fallback name if specific store name is missing
+            if (prov.products.isNotEmpty)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16.0,
+                    vertical: 4.0,
+                  ),
+                  child: FadeTransition(
+                    opacity: _fadeAnimation,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade50,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.green.shade100),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.storefront,
+                            size: 16,
+                            color: Colors.green.shade700,
+                          ),
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Text(
+                              "Shopping from: ${prov.connectedStoreName ?? 'Nearby Store'}",
+                              style: GoogleFonts.poppins(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.green.shade800,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+            // -------------------------------------
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16.0, 20.0, 16.0, 12.0),
@@ -406,7 +473,6 @@ class _HomePageState extends State<HomePage>
               ),
             ),
 
-            // Enhanced Category Grid
             SliverPadding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
               sliver: SliverGrid(
@@ -433,7 +499,6 @@ class _HomePageState extends State<HomePage>
               ),
             ),
 
-            // Enhanced Banner Section
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(
@@ -463,7 +528,6 @@ class _HomePageState extends State<HomePage>
                   ),
                   child: Stack(
                     children: [
-                      // Decorative circles
                       Positioned(
                         right: -20,
                         top: -20,
@@ -567,7 +631,6 @@ class _HomePageState extends State<HomePage>
               ),
             ),
 
-            // Enhanced Best Deal Section
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 12.0),
@@ -630,7 +693,6 @@ class _HomePageState extends State<HomePage>
               ),
             ),
 
-            // Product Grid/List
             if (prov.isLoadingProducts && prov.products.isEmpty)
               const SliverFillRemaining(
                 child: Center(child: CircularProgressIndicator(strokeWidth: 3)),
@@ -689,7 +751,6 @@ class _HomePageState extends State<HomePage>
                 ),
               )
             else
-              // --- UPDATED: Changed from horizontal list to vertical grid ---
               SliverPadding(
                 padding: const EdgeInsets.all(16.0),
                 sliver: SliverGrid(
@@ -697,8 +758,7 @@ class _HomePageState extends State<HomePage>
                     crossAxisCount: 2,
                     crossAxisSpacing: 12.0,
                     mainAxisSpacing: 12.0,
-                    childAspectRatio:
-                        0.65, // Adjust this ratio to fit your ProductCard
+                    childAspectRatio: 0.65,
                   ),
                   delegate: SliverChildBuilderDelegate((context, index) {
                     return ProductCard(product: prov.products[index]);
@@ -706,27 +766,6 @@ class _HomePageState extends State<HomePage>
                 ),
               ),
 
-            // SliverToBoxAdapter(
-            //   child: SizedBox(
-            //     height: 290,
-            //     child: ListView.builder(
-            //       scrollDirection: Axis.horizontal,
-            //       padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            //       itemCount: prov.products.length > 8
-            //           ? 8
-            //           : prov.products.length,
-            //       itemBuilder: (context, index) {
-            //         return SizedBox(
-            //           width: 175,
-            //           child: Padding(
-            //             padding: const EdgeInsets.only(right: 12.0),
-            //             child: ProductCard(product: prov.products[index]),
-            //           ),
-            //         );
-            //       },
-            //     ),
-            //   ),
-            // ),
             const SliverPadding(padding: EdgeInsets.only(bottom: 24)),
           ],
         ),
@@ -735,7 +774,6 @@ class _HomePageState extends State<HomePage>
   }
 }
 
-// Enhanced Category Tile with animation
 class _EnhancedCategoryTile extends StatefulWidget {
   final CustomerCategory category;
   final int index;

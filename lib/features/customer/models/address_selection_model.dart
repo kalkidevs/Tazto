@@ -22,25 +22,28 @@ class _AddressSelectionModalState extends State<AddressSelectionModal>
   @override
   void initState() {
     super.initState();
-    // Set initial selected address from provider
+    // Set initial selected address from provider safely
     final provider = context.read<CustomerProvider>();
-    final defaultAddress = provider.user?.addresses.firstWhere(
-          (addr) => addr.isDefault, // Find the default address
-      orElse: () => provider.user!.addresses
-          .first, // Or fallback to the first address
-    );
-    _selectedAddressId = defaultAddress?.id;
+    final addresses = provider.user?.addresses ?? [];
+
+    if (addresses.isNotEmpty) {
+      final defaultAddress = addresses.firstWhere(
+        (addr) => addr.isDefault,
+        orElse: () => addresses.first,
+      );
+      _selectedAddressId = defaultAddress.id;
+    } else {
+      _selectedAddressId = null;
+    }
 
     // Blinking animation for the confirm button
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 700),
     );
-    _pulseAnimation =
-        Tween<double>(begin: 1.0, end: 1.05).animate(CurvedAnimation(
-          parent: _animationController,
-          curve: Curves.easeInOut,
-        ));
+    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.05).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
     _animationController.repeat(reverse: true);
   }
 
@@ -94,10 +97,33 @@ class _AddressSelectionModalState extends State<AddressSelectionModal>
             if (addresses.isEmpty)
               Padding(
                 padding: const EdgeInsets.all(32.0),
-                child: Text(
-                  'No addresses found. Please add a new address.',
-                  style: GoogleFonts.poppins(color: AppColors.textSecondary),
-                  textAlign: TextAlign.center,
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.location_off_outlined,
+                      size: 48,
+                      color: Colors.grey[400],
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'No addresses found.',
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.textPrimary,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Please add a delivery address to continue.',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        color: AppColors.textSecondary,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
                 ),
               )
             else
@@ -121,15 +147,15 @@ class _AddressSelectionModalState extends State<AddressSelectionModal>
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   OutlinedButton.icon(
-                    icon:
-                    const Icon(Icons.add_location_alt_outlined, size: 20),
+                    icon: const Icon(Icons.add_location_alt_outlined, size: 20),
                     label: const Text('Add a new address'),
                     onPressed: () {
                       Navigator.pop(context); // Close modal first
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                            builder: (_) => const AddAddressPage()),
+                          builder: (_) => const AddAddressPage(),
+                        ),
                       );
                     },
                     style: OutlinedButton.styleFrom(
@@ -141,28 +167,30 @@ class _AddressSelectionModalState extends State<AddressSelectionModal>
                       ),
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  ScaleTransition(
-                    scale: _pulseAnimation,
-                    child: ElevatedButton(
-                      onPressed: _onConfirm,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                  if (addresses.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    ScaleTransition(
+                      scale: _pulseAnimation,
+                      child: ElevatedButton(
+                        onPressed: _onConfirm,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
-                      ),
-                      child: Text(
-                        'Confirm Location',
-                        style: GoogleFonts.poppins(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 16,
+                        child: Text(
+                          'Confirm Location',
+                          style: GoogleFonts.poppins(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 16,
+                          ),
                         ),
                       ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart'; // Import foundation for compute
 import 'package:flutter/material.dart';
 import 'package:tazto/api/seller_api.dart';
 import 'package:tazto/features/seller/models/seller_analytics_model.dart';
@@ -5,6 +6,19 @@ import 'package:tazto/features/seller/models/seller_order_model.dart';
 import 'package:tazto/features/seller/models/seller_product_model.dart';
 import 'package:tazto/features/seller/models/seller_store_model.dart';
 import 'package:tazto/features/seller/screens/upload/product_upload_page.dart';
+
+// --- TOP-LEVEL FUNCTIONS FOR BACKGROUND PROCESSING ---
+List<SellerProduct> _parseProductsInIsolate(List<dynamic> rawList) {
+  return rawList
+      .map((json) => SellerProduct.fromJson(json as Map<String, dynamic>))
+      .toList();
+}
+
+List<SellerOrder> _parseOrdersInIsolate(List<dynamic> rawList) {
+  return rawList
+      .map((json) => SellerOrder.fromJson(json as Map<String, dynamic>))
+      .toList();
+}
 
 class SellerProvider with ChangeNotifier {
   final SellerApi _sellerApi = SellerApi();
@@ -51,7 +65,6 @@ class SellerProvider with ChangeNotifier {
   String? get ordersError => _ordersError;
 
   /// Fetches the seller's store profile.
-  /// This is the first thing that should be called upon seller login.
   Future<void> fetchStoreProfile() async {
     if (_isLoadingStore) return;
     _isLoadingStore = true;
@@ -62,34 +75,27 @@ class SellerProvider with ChangeNotifier {
       final storeData = await _sellerApi.getMyStore();
       _store = Store.fromJson(storeData);
       _storeError = null;
-      // --- ADDED: If store is found, fetch other data ---
       _fetchAllSellerData();
-      // --------------------------------------------------
     } catch (e) {
       debugPrint("fetchStoreProfile Error: $e");
-      // --- ADDED: Handle 404 (Store not found) gracefully ---
       if (e.toString().contains('404') ||
           e.toString().contains('Seller profile not found')) {
-        _storeError = 'NOT_FOUND'; // Special code for the UI to check
+        _storeError = 'NOT_FOUND';
         _store = null;
       } else {
         _storeError = e.toString();
         _store = null;
       }
-      // ------------------------------------------------------
     } finally {
       _isLoadingStore = false;
       notifyListeners();
     }
   }
 
-  /// NEW: Helper to fetch all data *after* store is confirmed
   Future<void> _fetchAllSellerData() async {
-    // Run all fetches in parallel
     Future.wait([fetchDashboardAnalytics(), fetchProducts(), fetchOrders()]);
   }
 
-  /// NEW: Creates the seller's store profile.
   Future<bool> createStoreProfile({
     required String storeName,
     required String address,
@@ -97,7 +103,7 @@ class SellerProvider with ChangeNotifier {
     required double lat,
     required double lng,
   }) async {
-    _isLoadingStore = true; // Use the main store loader
+    _isLoadingStore = true;
     _storeError = null;
     notifyListeners();
 
@@ -109,26 +115,22 @@ class SellerProvider with ChangeNotifier {
         lat: lat,
         lng: lng,
       );
-      _store = Store.fromJson(newStoreData); // Set the new store
+      _store = Store.fromJson(newStoreData);
       _storeError = null;
-
-      // --- ADDED: Fetch other data now that store is created ---
       _fetchAllSellerData();
       return true;
-      // --------------------------------------------------------
     } catch (e) {
       debugPrint("createStoreProfile Error: $e");
       _storeError = e.toString();
-      _store = null; // Stay null on error
-      notifyListeners(); // Notify to show error
+      _store = null;
+      notifyListeners();
       return false;
     } finally {
       _isLoadingStore = false;
-      notifyListeners(); // Notify to stop loading
+      notifyListeners();
     }
   }
 
-  /// Fetches all dashboard analytics data.
   Future<void> fetchDashboardAnalytics() async {
     if (_isLoadingAnalytics) return;
     _isLoadingAnalytics = true;
@@ -149,9 +151,10 @@ class SellerProvider with ChangeNotifier {
     }
   }
 
-  /// Fetches the seller's product list.
   Future<void> fetchProducts() async {
+    // Guard clause: prevents multiple simultaneous fetches
     if (_isLoadingProducts) return;
+
     _isLoadingProducts = true;
     _productsError = null;
     notifyListeners();
@@ -161,9 +164,10 @@ class SellerProvider with ChangeNotifier {
       final List<dynamic> productList = (data['products'] is List)
           ? data['products'] as List<dynamic>
           : [];
-      _products = productList
-          .map((json) => SellerProduct.fromJson(json as Map<String, dynamic>))
-          .toList();
+
+      // Parse in background to avoid UI jank
+      _products = await compute(_parseProductsInIsolate, productList);
+
       _productsError = null;
     } catch (e) {
       debugPrint("fetchProducts Error: $e");
@@ -175,7 +179,6 @@ class SellerProvider with ChangeNotifier {
     }
   }
 
-  /// Fetches the seller's order list.
   Future<void> fetchOrders() async {
     if (_isLoadingOrders) return;
     _isLoadingOrders = true;
@@ -187,9 +190,9 @@ class SellerProvider with ChangeNotifier {
       final List<dynamic> orderList = (data['orders'] is List)
           ? data['orders'] as List<dynamic>
           : [];
-      _orders = orderList
-          .map((json) => SellerOrder.fromJson(json as Map<String, dynamic>))
-          .toList();
+
+      _orders = await compute(_parseOrdersInIsolate, orderList);
+
       _ordersError = null;
     } catch (e) {
       debugPrint("fetchOrders Error: $e");
@@ -201,23 +204,52 @@ class SellerProvider with ChangeNotifier {
     }
   }
 
-  /// Adds multiple products from a CSV/XLSX file.
+  // --- BULK UPLOAD LOGIC ---
   Future<bool> bulkAddProducts(List<ParsedProduct> parsedProducts) async {
+    // 1. Set loading to true initially
     _isLoadingProducts = true;
     _productsError = null;
     notifyListeners();
 
     try {
-      // Convert ParsedProduct models to simple Maps
+      const int batchSize = 50;
       final productMaps = parsedProducts.map((p) => p.toJson()).toList();
 
-      // Call the API
-      final response = await _sellerApi.bulkAddProducts(productMaps);
-      debugPrint("Bulk add response: ${response['message']}");
+      int totalUploaded = 0;
+      List<String> errors = [];
 
-      // Refresh the entire product list from the server
-      await fetchProducts();
-      _productsError = null;
+      for (var i = 0; i < productMaps.length; i += batchSize) {
+        final end = (i + batchSize < productMaps.length)
+            ? i + batchSize
+            : productMaps.length;
+        final batch = productMaps.sublist(i, end);
+
+        debugPrint("Uploading batch: $i to $end");
+
+        try {
+          await _sellerApi.bulkAddProducts(batch);
+          totalUploaded += batch.length;
+        } catch (e) {
+          debugPrint("Batch failed: $e");
+          errors.add("Batch ${i ~/ batchSize + 1}: Failed to upload");
+        }
+      }
+
+      if (errors.isNotEmpty) {
+        throw Exception("Partial upload completed. Errors in some batches.");
+      }
+
+      // --- FIX: Reset loading state BEFORE calling fetch functions ---
+      // We must set this to false because fetchProducts() has a guard clause:
+      // 'if (_isLoadingProducts) return;'
+      // If we don't set it to false here, fetchProducts will think a load is
+      // already in progress and return immediately, leaving the UI stuck.
+      _isLoadingProducts = false;
+
+      // 2. Refresh Products & Analytics
+      // Using Future.wait to update both the product list and the dashboard stats simultaneously
+      await Future.wait([fetchProducts(), fetchDashboardAnalytics()]);
+
       return true;
     } catch (e) {
       debugPrint("bulkAddProducts Error: $e");
@@ -228,9 +260,7 @@ class SellerProvider with ChangeNotifier {
     }
   }
 
-  /// Adds a single new product.
   Future<bool> addProduct(Map<String, dynamic> productData) async {
-    // Use _isLoadingProducts to show loading on the product list page
     _isLoadingProducts = true;
     _productsError = null;
     notifyListeners();
@@ -238,7 +268,11 @@ class SellerProvider with ChangeNotifier {
     try {
       final newProductData = await _sellerApi.addProduct(productData);
       final newProduct = SellerProduct.fromJson(newProductData);
-      _products.insert(0, newProduct); // Add to start of list
+      _products.insert(0, newProduct);
+
+      // Also update analytics after adding single product
+      fetchDashboardAnalytics();
+
       _productsError = null;
       return true;
     } catch (e) {
@@ -251,7 +285,6 @@ class SellerProvider with ChangeNotifier {
     }
   }
 
-  /// Updates the seller's store profile.
   Future<bool> updateStoreProfile(Map<String, dynamic> updates) async {
     try {
       final updatedStoreData = await _sellerApi.updateStore(updates);
@@ -267,13 +300,12 @@ class SellerProvider with ChangeNotifier {
     }
   }
 
-  /// Updates the status of a specific order.
   Future<bool> updateOrderStatus({
     required String orderId,
     required String status,
   }) async {
     _ordersError = null;
-    notifyListeners(); // We don't set a loading flag, UI handles it
+    notifyListeners();
 
     try {
       final updatedOrderData = await _sellerApi.updateOrderStatus(
@@ -282,11 +314,14 @@ class SellerProvider with ChangeNotifier {
       );
       final updatedOrder = SellerOrder.fromJson(updatedOrderData);
 
-      // Find and update the order in the local list
       final index = _orders.indexWhere((o) => o.id == orderId);
       if (index != -1) {
         _orders[index] = updatedOrder;
       }
+
+      // Refresh analytics as order status change affects revenue/counts
+      fetchDashboardAnalytics();
+
       notifyListeners();
       return true;
     } catch (e) {
@@ -297,7 +332,6 @@ class SellerProvider with ChangeNotifier {
     }
   }
 
-  /// Clears all seller data on logout.
   void clearSellerData() {
     _store = null;
     _analytics = null;

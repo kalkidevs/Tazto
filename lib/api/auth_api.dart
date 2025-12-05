@@ -60,6 +60,19 @@ class AuthApi {
     }
     return response as Map<String, dynamic>;
   }
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    await _apiClient.put(
+      '/api/auth/change-password',
+      {
+        'currentPassword': currentPassword,
+        'newPassword': newPassword,
+      },
+      requireAuth: true,
+    );
+  }
 
   /// Logs out the user by deleting the token.
   Future<void> logout() async {

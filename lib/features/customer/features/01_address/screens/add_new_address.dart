@@ -107,7 +107,6 @@ class _AddAddressPageState extends State<AddAddressPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      // or Colors.white if Blinkit uses white
       appBar: AppBar(
         backgroundColor: AppColors.background,
         elevation: 0,
@@ -128,7 +127,7 @@ class _AddAddressPageState extends State<AddAddressPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Label chips row (Home / Work / Other) – optional
+              // Label chips row (Home / Work / Other)
               Row(
                 children: [
                   _buildLabelChip('Home'),
@@ -184,6 +183,7 @@ class _AddAddressPageState extends State<AddAddressPage> {
               ),
               const SizedBox(height: 32),
 
+              // Updated button text as requested
               ElevatedButton(
                 onPressed: _isLoading ? null : _onSaveAddress,
                 style: ElevatedButton.styleFrom(
@@ -207,7 +207,7 @@ class _AddAddressPageState extends State<AddAddressPage> {
                           color: Colors.white,
                         ),
                       )
-                    : const Text('Save Address'),
+                    : const Text('Add Address'),
               ),
             ],
           ),

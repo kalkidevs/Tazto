@@ -1,11 +1,13 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tazto/auth/login_screen.dart';
+import 'package:tazto/main.dart'; // Import main to access navigatorKey
 
-/// A custom exception to handle API errors.
 class ApiException implements Exception {
   final String message;
   final int? statusCode;
@@ -19,30 +21,12 @@ class ApiException implements Exception {
 }
 
 class ApiClient {
-  // ---  DEVELOPMENT TOGGLE ---
-  // Set this to 'true' to test against your local server.
-  // Set this to 'false' to use your live 'onrender.com' server.
-  static const bool _isTestingLocally = false;
-
-  // --- API URLS ---
-  // Live URL
+  // --- CONFIGURATION ---
+  static const bool _isTestingLocally = true;
   static const String _liveUrl = "https://backend-linc-2.onrender.com";
-
-  // Local URL for Android Emulator
-  // (10.0.2.2 points from the emulator back to your computer's localhost)
-  // static const String _localUrl = "http://10.0.2.2:3000"; // <-- OLD
-
-  // (If testing on an iOS Simulator, you can use: "http://localhost:3000")
-
-  static const String _localUrl = "http://localhost:3000";
-
-  // Use adb reverse (for Android only, emulator or USB debugging):
-  //Terminal Run: "adb reverse tcp:3000 tcp:3000"
-
-  // (If testing on a REAL PHONE, use your computer's Wi-Fi IP, e.g., "http://192.168.1.5:3000")
-
-  // The final URL the app will use
+  static const String _localUrl = "http://192.168.0.101:3000";
   static final String _baseUrl = _isTestingLocally ? _localUrl : _liveUrl;
+  static const Duration _timeout = Duration(seconds: 30);
 
   // --- TOKEN MANAGEMENT ---
 
@@ -69,21 +53,37 @@ class ApiClient {
       final token = await getToken();
       if (token != null) {
         headers['Authorization'] = 'Bearer $token';
-      } else {
-        debugPrint("Auth token is null, but request requires auth.");
       }
     }
     return headers;
   }
 
   dynamic _handleResponse(http.Response response, String endpoint) {
-    // Check if the server response is valid JSON
+    // --- GLOBAL 401 HANDLER ---
+    if (response.statusCode == 401) {
+      debugPrint("⚠️ 401 Unauthorized detected. Logging out...");
+
+      // 1. Delete the invalid token
+      deleteToken();
+
+      // 2. Force navigate to Login Screen using global key
+      if (navigatorKey.currentState != null) {
+        navigatorKey.currentState!.pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const LoginPage()),
+              (route) => false, // Clear all previous routes
+        );
+
+        // Optional: Show a snackbar explaining why
+        // We can't easily show a snackbar without a Scaffold context,
+        // so we just redirect for now.
+      }
+
+      throw ApiException("Session expired. Please login again.", 401);
+    }
+
     final contentType = response.headers['content-type'];
     if (contentType == null || !contentType.contains('application/json')) {
-      debugPrint("API Response (Not JSON) from $endpoint: ${response.body}");
-      throw ApiException(
-        "Invalid response from server (Expected JSON, but got HTML or text). Please check the API endpoint and server logs.",
-      );
+      throw ApiException("Invalid response from server.", response.statusCode);
     }
 
     final dynamic responseBody = jsonDecode(response.body);
@@ -91,105 +91,87 @@ class ApiClient {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return responseBody;
     } else {
-      final errorMessage =
-          responseBody['message'] ?? 'An unknown server error occurred.';
+      final errorMessage = responseBody['message'] ?? 'An unknown server error occurred.';
       throw ApiException(errorMessage, response.statusCode);
     }
   }
 
-  /// Makes a POST request.
-  Future<dynamic> post(
-    String endpoint,
-    Map<String, dynamic> body, {
-    bool requireAuth = false,
-  }) async {
+  Future<dynamic> post(String endpoint, Map<String, dynamic> body, {bool requireAuth = false}) async {
     final uri = Uri.parse(_baseUrl + endpoint);
-    debugPrint("POST > $uri \nBody: $body");
+    debugPrint("POST > $uri");
 
     try {
       final headers = await _getHeaders(requireAuth: requireAuth);
-      final response = await http.post(
-        uri,
-        headers: headers,
-        body: jsonEncode(body),
-      );
+      final response = await http
+          .post(uri, headers: headers, body: jsonEncode(body))
+          .timeout(_timeout);
+
       return _handleResponse(response, endpoint);
     } on SocketException {
-      throw ApiException(
-        "Network error. Could not connect to the server. Is your local server running?",
-      );
+      throw ApiException("Network error. Cannot connect to server.");
+    } on TimeoutException {
+      throw ApiException("Connection timed out.");
     } catch (e) {
-      debugPrint("ApiClient POST Error hitting $uri: $e");
-      if (e is ApiException) rethrow; // Re-throw our custom error
-      throw ApiException("An unexpected error occurred. Please try again.");
+      if (e is ApiException) rethrow;
+      throw ApiException("An unexpected error occurred: $e");
     }
   }
 
-  /// Makes a GET request.
   Future<dynamic> get(String endpoint, {bool requireAuth = true}) async {
     final uri = Uri.parse(_baseUrl + endpoint);
     debugPrint("GET > $uri");
 
     try {
       final headers = await _getHeaders(requireAuth: requireAuth);
-      final response = await http.get(uri, headers: headers);
+      final response = await http.get(uri, headers: headers).timeout(_timeout);
       return _handleResponse(response, endpoint);
     } on SocketException {
-      throw ApiException(
-        "Network error. Could not connect to the server. Is your local server running?",
-      );
+      throw ApiException("Network error. Cannot connect to server.");
+    } on TimeoutException {
+      throw ApiException("Connection timed out.");
     } catch (e) {
-      debugPrint("ApiClient GET Error hitting $uri: $e");
       if (e is ApiException) rethrow;
-      throw ApiException("An unexpected error occurred. Please try again.");
+      throw ApiException("Error: $e");
     }
   }
 
-  /// Makes a PUT request (for updating).
-  Future<dynamic> put(
-    String endpoint,
-    Map<String, dynamic> body, {
-    bool requireAuth = true,
-  }) async {
+  Future<dynamic> put(String endpoint, Map<String, dynamic> body, {bool requireAuth = true}) async {
     final uri = Uri.parse(_baseUrl + endpoint);
-    debugPrint("PUT > $uri \nBody: $body");
+    debugPrint("PUT > $uri");
 
     try {
       final headers = await _getHeaders(requireAuth: requireAuth);
-      final response = await http.put(
-        uri,
-        headers: headers,
-        body: jsonEncode(body),
-      );
+      final response = await http
+          .put(uri, headers: headers, body: jsonEncode(body))
+          .timeout(_timeout);
       return _handleResponse(response, endpoint);
     } on SocketException {
-      throw ApiException(
-        "Network error. Could not connect to the server. Is your local server running?",
-      );
+      throw ApiException("Network error. Cannot connect to server.");
+    } on TimeoutException {
+      throw ApiException("Connection timed out.");
     } catch (e) {
-      debugPrint("ApiClient PUT Error hitting $uri: $e");
       if (e is ApiException) rethrow;
-      throw ApiException("An unexpected error occurred. Please try again.");
+      throw ApiException("Error: $e");
     }
   }
 
-  /// Makes a DELETE request.
   Future<dynamic> delete(String endpoint, {bool requireAuth = true}) async {
     final uri = Uri.parse(_baseUrl + endpoint);
     debugPrint("DELETE > $uri");
 
     try {
       final headers = await _getHeaders(requireAuth: requireAuth);
-      final response = await http.delete(uri, headers: headers);
+      final response = await http
+          .delete(uri, headers: headers)
+          .timeout(_timeout);
       return _handleResponse(response, endpoint);
     } on SocketException {
-      throw ApiException(
-        "Network error. Could not connect to the server. Is your local server running?",
-      );
+      throw ApiException("Network error. Cannot connect to server.");
+    } on TimeoutException {
+      throw ApiException("Connection timed out.");
     } catch (e) {
-      debugPrint("ApiClient DELETE Error hitting $uri: $e");
       if (e is ApiException) rethrow;
-      throw ApiException("An unexpected error occurred. Please try again.");
+      throw ApiException("Error: $e");
     }
   }
 }

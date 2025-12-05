@@ -12,8 +12,23 @@ class AppColors {
 }
 
 class AppTheme {
+  // Define iOS-style page transitions for all platforms
+  static const PageTransitionsTheme _iosPageTransitions = PageTransitionsTheme(
+    builders: {
+      TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+      TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+      TargetPlatform.fuchsia: CupertinoPageTransitionsBuilder(),
+      TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+    },
+  );
+
   static ThemeData lightTheme = ThemeData(
     useMaterial3: true,
+    // Apply the iOS transitions
+    pageTransitionsTheme: _iosPageTransitions,
+    // Remove Material ripple for a cleaner iOS-like touch feel
+    splashFactory: NoSplash.splashFactory,
+
     colorScheme: ColorScheme.light(
       primary: AppColors.primary,
       secondary: AppColors.secondary,
@@ -32,36 +47,63 @@ class AppTheme {
       foregroundColor: Colors.white,
       centerTitle: true,
       titleTextStyle: TextStyle(
-        fontSize: 20,
-        fontWeight: FontWeight.bold,
+        fontSize: 17, // iOS standard title size
+        fontWeight: FontWeight.w600,
         color: Colors.white,
+        fontFamily: 'Poppins', // Assuming font is used elsewhere
       ),
     ),
     buttonTheme: const ButtonThemeData(
       buttonColor: AppColors.primary,
       textTheme: ButtonTextTheme.primary,
     ),
-    cardTheme: const CardThemeData( // ✅ FIXED (use CardThemeData instead of CardTheme)
+    cardTheme: const CardThemeData(
       color: AppColors.surface,
-      elevation: 3,
+      elevation: 0, // Flatter look for iOS style
       margin: EdgeInsets.all(8),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.all(Radius.circular(12)),
+        side: BorderSide(color: Color(0xFFEEEEEE), width: 1), // Subtle border
       ),
     ),
     textTheme: const TextTheme(
-      displayLarge: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-      displayMedium: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-      displaySmall: TextStyle(fontSize: 24, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
-      headlineMedium: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
-      headlineSmall: TextStyle(fontSize: 18, fontWeight: FontWeight.w500, color: AppColors.textPrimary),
+      displayLarge: TextStyle(
+        fontSize: 32,
+        fontWeight: FontWeight.bold,
+        color: AppColors.textPrimary,
+      ),
+      displayMedium: TextStyle(
+        fontSize: 28,
+        fontWeight: FontWeight.bold,
+        color: AppColors.textPrimary,
+      ),
+      displaySmall: TextStyle(
+        fontSize: 24,
+        fontWeight: FontWeight.w600,
+        color: AppColors.textPrimary,
+      ),
+      headlineMedium: TextStyle(
+        fontSize: 20,
+        fontWeight: FontWeight.w600,
+        color: AppColors.textPrimary,
+      ),
+      headlineSmall: TextStyle(
+        fontSize: 18,
+        fontWeight: FontWeight.w500,
+        color: AppColors.textPrimary,
+      ),
       bodyLarge: TextStyle(fontSize: 16, color: AppColors.textPrimary),
       bodyMedium: TextStyle(fontSize: 14, color: AppColors.textSecondary),
-      labelLarge: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.white),
+      labelLarge: TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.w500,
+        color: Colors.white,
+      ),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: AppColors.background,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide.none,
@@ -75,6 +117,9 @@ class AppTheme {
 
   static ThemeData darkTheme = ThemeData(
     useMaterial3: true,
+    pageTransitionsTheme: _iosPageTransitions,
+    splashFactory: NoSplash.splashFactory,
+
     colorScheme: ColorScheme.dark(
       primary: AppColors.primary,
       secondary: AppColors.secondary,
@@ -93,8 +138,8 @@ class AppTheme {
       foregroundColor: Colors.white,
       centerTitle: true,
       titleTextStyle: TextStyle(
-        fontSize: 20,
-        fontWeight: FontWeight.bold,
+        fontSize: 17,
+        fontWeight: FontWeight.w600,
         color: Colors.white,
       ),
     ),
@@ -102,27 +147,53 @@ class AppTheme {
       buttonColor: AppColors.primary,
       textTheme: ButtonTextTheme.primary,
     ),
-    cardTheme: const CardThemeData( // ✅ FIXED
+    cardTheme: const CardThemeData(
       color: Color(0xFF1E1E1E),
-      elevation: 3,
+      elevation: 0,
       margin: EdgeInsets.all(8),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.all(Radius.circular(12)),
+        side: BorderSide(color: Color(0xFF333333), width: 1),
       ),
     ),
     textTheme: const TextTheme(
-      displayLarge: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.white),
-      displayMedium: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white),
-      displaySmall: TextStyle(fontSize: 24, fontWeight: FontWeight.w600, color: Colors.white),
-      headlineMedium: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: Colors.white),
-      headlineSmall: TextStyle(fontSize: 18, fontWeight: FontWeight.w500, color: Colors.white),
+      displayLarge: TextStyle(
+        fontSize: 32,
+        fontWeight: FontWeight.bold,
+        color: Colors.white,
+      ),
+      displayMedium: TextStyle(
+        fontSize: 28,
+        fontWeight: FontWeight.bold,
+        color: Colors.white,
+      ),
+      displaySmall: TextStyle(
+        fontSize: 24,
+        fontWeight: FontWeight.w600,
+        color: Colors.white,
+      ),
+      headlineMedium: TextStyle(
+        fontSize: 20,
+        fontWeight: FontWeight.w600,
+        color: Colors.white,
+      ),
+      headlineSmall: TextStyle(
+        fontSize: 18,
+        fontWeight: FontWeight.w500,
+        color: Colors.white,
+      ),
       bodyLarge: TextStyle(fontSize: 16, color: Colors.white70),
       bodyMedium: TextStyle(fontSize: 14, color: Colors.white60),
-      labelLarge: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.white),
+      labelLarge: TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.w500,
+        color: Colors.white,
+      ),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: const Color(0xFF1E1E1E),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide.none,

@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:tazto/api/api_client.dart';
 import 'package:tazto/app/config/app_theme.dart';
 import 'package:tazto/providers/customer_provider.dart';
+import 'package:tazto/widgets/permission_guard.dart';
 
 import 'cart_page.dart';
 import 'customer_orders_page.dart';
@@ -103,25 +104,27 @@ class CustomerLayoutState extends State<CustomerLayout> {
     if (provider.user == null) {
       return _buildErrorScreen("Could not load user profile.");
     }
-    return Scaffold(
-      body: _pages[_currentIndex],
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        selectedItemColor: Theme.of(context).primaryColor,
-        type: BottomNavigationBarType.fixed,
-        onTap: (i) => setState(() => _currentIndex = i),
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.receipt_long_outlined),
-            label: 'My Orders',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.shopping_cart),
-            label: 'Cart',
-          ),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
-        ],
+    return PermissionGuard(
+      child: Scaffold(
+        body: _pages[_currentIndex],
+        bottomNavigationBar: BottomNavigationBar(
+          currentIndex: _currentIndex,
+          selectedItemColor: Theme.of(context).primaryColor,
+          type: BottomNavigationBarType.fixed,
+          onTap: (i) => setState(() => _currentIndex = i),
+          items: const [
+            BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.receipt_long_outlined),
+              label: 'My Orders',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.shopping_cart),
+              label: 'Cart',
+            ),
+            BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+          ],
+        ),
       ),
     );
   }

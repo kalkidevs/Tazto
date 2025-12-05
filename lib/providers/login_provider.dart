@@ -3,17 +3,15 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tazto/api/api_client.dart';
 import 'package:tazto/api/auth_api.dart';
+import 'package:tazto/api/user_api.dart'; // Added UserApi
 import 'package:tazto/providers/customer_provider.dart';
-import 'package:tazto/providers/seller_provider.dart'; // Import provider
+import 'package:tazto/providers/seller_provider.dart';
 
-enum LoginStatus {
-  loginSuccess,
-  firstTimeLogin, // For privacy consent
-  loginFailed,
-}
+enum LoginStatus { loginSuccess, firstTimeLogin, loginFailed }
 
 class LoginProvider with ChangeNotifier {
   final AuthApi _authApi = AuthApi();
+  final UserApi _userApi = UserApi(); // Needed to fetch role on startup
 
   bool isLoading = false;
   String? errorMessage;
@@ -28,6 +26,56 @@ class LoginProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  /// --- NEW: Check Login Status on App Start ---
+  /// This determines where the user goes when they open the app.
+  Future<String> checkLoginStatus(BuildContext context) async {
+    final prefs = await SharedPreferences.getInstance();
+    final storedToken = prefs.getString('jwt_token');
+
+    if (storedToken == null || storedToken.isEmpty) {
+      return 'LOGIN'; // No token, go to login screen
+    }
+
+    token = storedToken;
+    notifyListeners();
+
+    try {
+      // 1. Fetch User Profile to get Roles (using the stored token)
+      // We use UserApi because it works for both roles to get basic info
+      final userData = await _userApi.getMyProfile();
+
+      // 2. Determine Role
+      final List<dynamic> roles = userData['roles'] ?? [];
+
+      // 3. Hydrate the correct provider based on role
+      if (roles.contains('seller')) {
+        sessionRole = 'seller';
+        // Initialize Seller Data
+        if (context.mounted) {
+          await context.read<SellerProvider>().fetchStoreProfile();
+        }
+        return 'SELLER_HOME';
+      } else {
+        sessionRole = 'customer';
+        // Initialize Customer Data
+        if (context.mounted) {
+          // Pass the user data we already fetched to save a network call
+          context.read<CustomerProvider>().setUser(userData);
+        }
+
+        // Check privacy consent
+        final bool hasConsented =
+            prefs.getBool('has_consented_to_privacy') ?? false;
+        return hasConsented ? 'CUSTOMER_HOME' : 'PRIVACY_CONSENT';
+      }
+    } catch (e) {
+      debugPrint("Auto-login failed: $e");
+      // Token might be expired or invalid
+      await logout(context);
+      return 'LOGIN';
+    }
+  }
+
   Future<LoginStatus> login(
     BuildContext context,
     String email,
@@ -40,7 +88,6 @@ class LoginProvider with ChangeNotifier {
     final String selectedRole = isCustomerLogin ? "customer" : "seller";
 
     try {
-      // This step logs in AND saves the token via AuthApi
       final data = await _authApi.login(email: email, password: password);
 
       if (data.containsKey('token') &&
@@ -51,22 +98,16 @@ class LoginProvider with ChangeNotifier {
           final List<String> userRoles = List<String>.from(userMap['roles']);
 
           if (userRoles.contains(selectedRole)) {
-            // Role is valid
             token = data["token"] as String;
             sessionRole = selectedRole;
 
-            // Use context.read() to get providers
             final customerProvider = context.read<CustomerProvider>();
             final sellerProvider = context.read<SellerProvider>();
 
             if (selectedRole == 'customer') {
-              // User is a customer
-              sellerProvider.clearSellerData(); // Clear any old seller data
-              customerProvider.setUser(
-                userMap,
-              ); // This triggers all customer data fetching
+              sellerProvider.clearSellerData();
+              customerProvider.setUser(userMap);
 
-              // --- NEW: Privacy Consent Check ---
               final prefs = await SharedPreferences.getInstance();
               final bool hasConsented =
                   prefs.getBool('has_consented_to_privacy') ?? false;
@@ -74,26 +115,19 @@ class LoginProvider with ChangeNotifier {
               isLoading = false;
               notifyListeners();
 
-              if (hasConsented) {
-                return LoginStatus.loginSuccess;
-              } else {
-                return LoginStatus.firstTimeLogin;
-              }
-              // --- END NEW ---
+              return hasConsented
+                  ? LoginStatus.loginSuccess
+                  : LoginStatus.firstTimeLogin;
             } else {
-              // User is a seller
-              customerProvider
-                  .clearUser(); // Clear any old customer data (this NO LONGER deletes the token)
-              sellerProvider
-                  .fetchStoreProfile(); // This triggers seller data fetching
+              customerProvider.clearUser();
+              // --- CRITICAL: Fetch store profile immediately upon login ---
+              await sellerProvider.fetchStoreProfile();
 
               isLoading = false;
               notifyListeners();
-              return LoginStatus
-                  .loginSuccess; // Sellers don't need the privacy screen
+              return LoginStatus.loginSuccess;
             }
           } else {
-            // Role validation failed
             throw ApiException(
               "Access denied. You do not have a '$selectedRole' account.",
             );
@@ -108,43 +142,54 @@ class LoginProvider with ChangeNotifier {
       errorMessage = e.toString();
       isLoading = false;
       notifyListeners();
-      return LoginStatus.loginFailed; // --- UPDATED ---
+      return LoginStatus.loginFailed;
     } catch (e) {
       debugPrint("Login Provider Error: ${e.toString()}");
       errorMessage = "An unexpected error occurred.";
       isLoading = false;
       notifyListeners();
-      return LoginStatus.loginFailed; // --- UPDATED ---
+      return LoginStatus.loginFailed;
+    }
+  }
+  Future<bool> changePassword(String currentPassword, String newPassword) async {
+    isLoading = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      await _authApi.changePassword(
+          currentPassword: currentPassword,
+          newPassword: newPassword
+      );
+      isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      errorMessage = e.toString().replaceAll("Exception: ", "");
+      isLoading = false;
+      notifyListeners();
+      return false;
     }
   }
 
-  /// NEW: Logout method
-  /// This handles clearing the auth token and all user data.
   Future<void> logout(BuildContext context) async {
     try {
-      // 1. Call AuthApi to delete the token from secure storage
       await _authApi.logout();
     } catch (e) {
-      // Log if deletion fails, but proceed with local logout anyway
       debugPrint("Error deleting token from storage: $e");
     }
 
-    // 2. Clear this provider's state
     token = null;
     sessionRole = null;
 
-    // 3. Clear the CustomerProvider's state (user data, cart, orders)
     try {
-      // Use context.read() as we're in a method, not rebuilding
-      context.read<CustomerProvider>().clearUser();
-      context
-          .read<SellerProvider>()
-          .clearSellerData(); // --- ADDED: Clear SellerProvider ---
+      if (context.mounted) {
+        context.read<CustomerProvider>().clearUser();
+        context.read<SellerProvider>().clearSellerData();
+      }
     } catch (e) {
-      debugPrint("Error clearing CustomerProvider: $e");
+      debugPrint("Error clearing providers: $e");
     }
 
-    // 4. Notify all listeners that auth state has changed
     notifyListeners();
   }
 }

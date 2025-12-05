@@ -1,19 +1,22 @@
+import 'dart:ui'; // For BackdropFilter
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // For HapticFeedback
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:tazto/app/config/app_theme.dart';
-import 'package:tazto/auth/login_screen.dart';
 import 'package:tazto/features/seller/screens/dashboard/seller_orders_page.dart';
 import 'package:tazto/features/seller/screens/dashboard/seller_products_page.dart';
 import 'package:tazto/features/seller/screens/dashboard/seller_store_onboarding_screen.dart';
 import 'package:tazto/features/seller/screens/profile/seller_settings_page.dart';
-import 'package:tazto/providers/login_provider.dart';
 import 'package:tazto/providers/seller_provider.dart';
+import 'package:tazto/widgets/loading_overlay.dart';
+import 'package:tazto/widgets/logout_button.dart'; // IMPORTED
+import 'package:tazto/widgets/permission_guard.dart';
 
+import '../../../widgets/circular_icon_button.dart';
 import 'dashboard/seller_dashboard_page.dart';
 
-/// This is the new main layout for the Seller app, based on your UI design.
-/// It uses a BottomNavigationBar and now handles the new seller onboarding flow.
 class SellerLayout extends StatefulWidget {
   const SellerLayout({super.key});
 
@@ -23,14 +26,7 @@ class SellerLayout extends StatefulWidget {
 
 class _SellerLayoutState extends State<SellerLayout> {
   int _currentIndex = 0;
-
-  final List<Widget> _pages = [
-    const SellerDashboardPage(),
-    const SellerProductsPage(),
-    const SellerOrdersPage(),
-    const SellerSettingsPage(),
-    // We will add Payments and Analytics pages here later
-  ];
+  late PageController _pageController;
 
   final List<String> _titles = [
     'Dashboard',
@@ -39,225 +35,575 @@ class _SellerLayoutState extends State<SellerLayout> {
     'Settings',
   ];
 
-  // --- REMOVED initState fetching logic ---
-  // The provider now handles this, triggered by LoginProvider
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(initialPage: _currentIndex);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _onTabTapped(int index) {
+    if (_currentIndex == index) return;
+    HapticFeedback.selectionClick();
+    setState(() => _currentIndex = index);
+    _pageController.jumpToPage(index);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isStoreLoading = context.select<SellerProvider, bool>(
+      (p) => p.isLoadingStore,
+    );
+    final storeExists = context.select<SellerProvider, bool>(
+      (p) => p.store != null,
+    );
+
+    if (isStoreLoading) {
+      return const Scaffold(
+        body: LoadingOverlay(
+          isLoading: true,
+          message: "Loading your store...",
+          child: SizedBox.expand(),
+        ),
+      );
+    }
+
+    if (!storeExists) {
+      return const CreateStorePage();
+    }
+
+    return PermissionGuard(
+      child: LoadingOverlay(
+        isLoading: false,
+        child: Scaffold(
+          backgroundColor: const Color(0xFFF8F9FC),
+          extendBody: true,
+          appBar: _buildAnimatedAppBar(context),
+          drawer: const _EnhancedSellerDrawer(),
+          body: PageView(
+            controller: _pageController,
+            physics: const NeverScrollableScrollPhysics(),
+            children: const [
+              SellerDashboardPage(),
+              SellerProductsPage(),
+              SellerOrdersPage(),
+              SellerSettingsPage(),
+            ],
+          ),
+          bottomNavigationBar: _ModernFloatingBottomBar(
+            currentIndex: _currentIndex,
+            onTap: _onTabTapped,
+          ),
+        ),
+      ),
+    );
+  }
+
+  PreferredSizeWidget _buildAnimatedAppBar(BuildContext context) {
+    return PreferredSize(
+      preferredSize: const Size.fromHeight(kToolbarHeight + 10),
+      child: Container(
+        margin: EdgeInsets.only(top: MediaQuery.of(context).padding.top),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.white.withOpacity(0.9),
+              Colors.white.withOpacity(0.0),
+            ],
+          ),
+        ),
+        child: AppBar(
+          primary: false,
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          scrolledUnderElevation: 0,
+          centerTitle: true,
+          leading: Builder(
+            builder: (context) => CircularIconButton(
+              icon: Icons.menu_rounded,
+              onPressed: () => Scaffold.of(context).openDrawer(),
+            ),
+          ),
+          title: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 400),
+            transitionBuilder: (Widget child, Animation<double> animation) {
+              return FadeTransition(
+                opacity: animation,
+                child: SlideTransition(
+                  position:
+                      Tween<Offset>(
+                        begin: const Offset(0.0, 0.5),
+                        end: Offset.zero,
+                      ).animate(
+                        CurvedAnimation(
+                          parent: animation,
+                          curve: Curves.easeOutBack,
+                        ),
+                      ),
+                  child: child,
+                ),
+              );
+            },
+            child: Text(
+              _titles[_currentIndex],
+              key: ValueKey<String>(_titles[_currentIndex]),
+              style: GoogleFonts.poppins(
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.w700,
+                fontSize: 22,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ),
+          actions: [
+            CircularIconButton(
+              icon: Icons.notifications_none_rounded,
+              onPressed: () {},
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ModernFloatingBottomBar extends StatelessWidget {
+  final int currentIndex;
+  final ValueChanged<int> onTap;
+
+  const _ModernFloatingBottomBar({
+    required this.currentIndex,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(30),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Container(
+            height: 70,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.9),
+              borderRadius: BorderRadius.circular(30),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.08),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+              border: Border.all(
+                color: Colors.white.withOpacity(0.6),
+                width: 1.5,
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _NavBarItem(
+                  icon: Icons.dashboard_rounded,
+                  label: 'Home',
+                  index: 0,
+                  currentIndex: currentIndex,
+                  onTap: onTap,
+                ),
+                _NavBarItem(
+                  icon: Icons.inventory_2_rounded,
+                  label: 'Products',
+                  index: 1,
+                  currentIndex: currentIndex,
+                  onTap: onTap,
+                ),
+                _NavBarItem(
+                  icon: Icons.receipt_long_rounded,
+                  label: 'Orders',
+                  index: 2,
+                  currentIndex: currentIndex,
+                  onTap: onTap,
+                ),
+                _NavBarItem(
+                  icon: Icons.settings_rounded,
+                  label: 'Settings',
+                  index: 3,
+                  currentIndex: currentIndex,
+                  onTap: onTap,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NavBarItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final int index;
+  final int currentIndex;
+  final ValueChanged<int> onTap;
+
+  const _NavBarItem({
+    required this.icon,
+    required this.label,
+    required this.index,
+    required this.currentIndex,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isSelected = currentIndex == index;
+    final color = isSelected ? AppColors.primary : Colors.grey.shade400;
+
+    return GestureDetector(
+      onTap: () => onTap(index),
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOutBack,
+        padding: EdgeInsets.symmetric(
+          horizontal: isSelected ? 16 : 8,
+          vertical: 8,
+        ),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? AppColors.primary.withOpacity(0.1)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          children: [
+            TweenAnimationBuilder<double>(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.elasticOut,
+              tween: Tween(begin: 1.0, end: isSelected ? 1.2 : 1.0),
+              builder: (context, scale, child) {
+                return Transform.scale(
+                  scale: scale,
+                  child: Icon(icon, color: color, size: 24),
+                );
+              },
+            ),
+            if (isSelected) ...[
+              const SizedBox(width: 8),
+              AnimatedOpacity(
+                duration: const Duration(milliseconds: 200),
+                opacity: isSelected ? 1.0 : 0.0,
+                child: Text(
+                  label,
+                  style: GoogleFonts.poppins(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EnhancedSellerDrawer extends StatelessWidget {
+  const _EnhancedSellerDrawer();
 
   @override
   Widget build(BuildContext context) {
     final sellerProvider = context.watch<SellerProvider>();
-    final storeName = sellerProvider.store?.storeName ?? 'Kirana Partner';
+    final store = sellerProvider.store;
 
-    // --- NEW: Onboarding Logic ---
-    // This is the "gatekeeper" you described.
-    if (sellerProvider.isLoadingStore) {
-      // Show a full-screen loader while checking for a store
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
+    final storeName = store?.storeName ?? 'My Store';
+    final ownerName = store?.ownerName ?? 'Partner';
+    final storeImage = store?.storeLogoUrl;
+    final isOpen = store?.isOpen ?? false;
 
-    if (sellerProvider.store == null) {
-      // If loading is done and store is still null (e.g., 404 error),
-      // show the Create Store onboarding page.
-      return const CreateStorePage();
-    }
-    // --- END: Onboarding Logic ---
-
-    // If we get here, it means sellerProvider.store is NOT null,
-    // so we can show the main app.
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: Text(
-          _titles[_currentIndex],
-          style: GoogleFonts.poppins(
-            color: AppColors.textPrimary,
-            fontWeight: FontWeight.w600,
-          ),
+    return Drawer(
+      backgroundColor: Colors.white,
+      surfaceTintColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(
+          topRight: Radius.circular(24),
+          bottomRight: Radius.circular(24),
         ),
-        // A simple hamburger menu icon, though the main nav is the bottom bar
-        leading: Builder(
-          builder: (context) => IconButton(
-            icon: const Icon(Icons.menu, color: AppColors.textPrimary),
-            onPressed: () => Scaffold.of(context).openDrawer(),
-          ),
-        ),
-        backgroundColor: Colors.white,
-        elevation: 1,
-        shadowColor: Colors.black.withOpacity(0.1),
       ),
-      // Side drawer (as shown in Image 13)
-      drawer: _buildAppDrawer(context, storeName),
-      body: _pages[_currentIndex],
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: Colors.white,
-        selectedItemColor: AppColors.primary,
-        unselectedItemColor: AppColors.textSecondary.withOpacity(0.7),
-        selectedLabelStyle: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-        unselectedLabelStyle: GoogleFonts.poppins(),
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.dashboard_outlined),
-            activeIcon: Icon(Icons.dashboard),
-            label: 'Dashboard',
+      width: MediaQuery.of(context).size.width * 0.8,
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.fromLTRB(24, 60, 24, 30),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [AppColors.primary, AppColors.primary.withOpacity(0.8)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: const BorderRadius.only(
+                bottomLeft: Radius.circular(30),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primary.withOpacity(0.3),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(3),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white.withOpacity(0.3),
+                      ),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                          color: Colors.white,
+                        ),
+                        child: CircleAvatar(
+                          radius: 34,
+                          backgroundColor: Colors.white,
+                          backgroundImage: storeImage != null
+                              ? NetworkImage(storeImage)
+                              : null,
+                          child: storeImage == null
+                              ? Text(
+                                  storeName.isNotEmpty
+                                      ? storeName[0].toUpperCase()
+                                      : 'S',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 28,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.primary,
+                                  ),
+                                )
+                              : null,
+                        ),
+                      ),
+                    ),
+                    const Spacer(),
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isOpen ? Colors.green : Colors.red,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: (isOpen ? Colors.green : Colors.red)
+                                .withOpacity(0.4),
+                            blurRadius: 8,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            isOpen
+                                ? Icons.check_circle
+                                : Icons.power_settings_new,
+                            color: Colors.white,
+                            size: 14,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            isOpen ? 'OPEN' : 'CLOSED',
+                            style: GoogleFonts.poppins(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 11,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  storeName,
+                  style: GoogleFonts.poppins(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    height: 1.2,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  ownerName,
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    color: Colors.white.withOpacity(0.9),
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.inventory_2_outlined),
-            activeIcon: Icon(Icons.inventory_2),
-            label: 'Products',
+          const SizedBox(height: 16),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              children: [
+                _buildDrawerTile(
+                  context,
+                  icon: Icons.dashboard_rounded,
+                  title: 'Dashboard',
+                  color: Colors.blue,
+                  onTap: () => _navigate(context, 0),
+                ),
+                _buildDrawerTile(
+                  context,
+                  icon: Icons.inventory_2_rounded,
+                  title: 'Products',
+                  color: Colors.purple,
+                  onTap: () => _navigate(context, 1),
+                ),
+                _buildDrawerTile(
+                  context,
+                  icon: Icons.receipt_long_rounded,
+                  title: 'Orders',
+                  color: Colors.orange,
+                  onTap: () => _navigate(context, 2),
+                ),
+                _buildDrawerTile(
+                  context,
+                  icon: Icons.settings_rounded,
+                  title: 'Settings',
+                  color: Colors.teal,
+                  onTap: () => _navigate(context, 3),
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16.0, horizontal: 8),
+                  child: Divider(height: 1),
+                ),
+                _buildDrawerTile(
+                  context,
+                  icon: Icons.help_outline_rounded,
+                  title: 'Help & Support',
+                  color: Colors.indigo,
+                  onTap: () {},
+                ),
+                _buildDrawerTile(
+                  context,
+                  icon: Icons.info_outline_rounded,
+                  title: 'About LINC',
+                  color: Colors.grey,
+                  onTap: () {},
+                ),
+              ],
+            ),
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.receipt_long_outlined),
-            activeIcon: Icon(Icons.receipt_long),
-            label: 'Orders',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings_outlined),
-            activeIcon: Icon(Icons.settings),
-            label: 'Settings',
+          Container(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              children: [
+                // Reused Logout Tile
+                const LogoutListTile(),
+                const SizedBox(height: 16),
+                Text(
+                  'LINC Seller v1.0.0',
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: Colors.grey.shade400,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
 
-  /// Builds the side drawer based on Image 13
-  Widget _buildAppDrawer(BuildContext context, String storeName) {
-    final provider = context.read<LoginProvider>();
+  void _navigate(BuildContext context, int index) {
+    Navigator.pop(context);
+    final state = context.findAncestorStateOfType<_SellerLayoutState>();
+    state?._onTabTapped(index);
+  }
 
-    return Drawer(
-      child: Column(
-        children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(16, 60, 16, 16),
-            color: AppColors.background,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildDrawerTile(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          splashColor: color.withOpacity(0.1),
+          highlightColor: color.withOpacity(0.05),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            child: Row(
               children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, color: color, size: 20),
+                ),
+                const SizedBox(width: 16),
                 Text(
-                  storeName,
+                  title,
                   style: GoogleFonts.poppins(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textPrimary,
                   ),
                 ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: const BoxDecoration(
-                        color: Colors.green,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Store Open',
-                      style: GoogleFonts.poppins(
-                        fontSize: 12,
-                        color: Colors.green,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
+                const Spacer(),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: Colors.grey.shade300,
+                  size: 20,
                 ),
               ],
             ),
           ),
-          const Divider(height: 1),
-          ListTile(
-            leading: const Icon(Icons.dashboard_outlined),
-            title: const Text('Dashboard'),
-            selected: _currentIndex == 0,
-            onTap: () {
-              setState(() => _currentIndex = 0);
-              Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.inventory_2_outlined),
-            title: const Text('Products'),
-            selected: _currentIndex == 1,
-            onTap: () {
-              setState(() => _currentIndex = 1);
-              Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.receipt_long_outlined),
-            title: const Text('Orders'),
-            selected: _currentIndex == 2,
-            onTap: () {
-              setState(() => _currentIndex = 2);
-              Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.settings_outlined),
-            title: const Text('Settings'),
-            selected: _currentIndex == 3,
-            onTap: () {
-              setState(() => _currentIndex = 3);
-              Navigator.pop(context);
-            },
-          ),
-          // --- Placeholders for future pages ---
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.bar_chart_outlined),
-            title: const Text('Analytics'),
-            onTap: () {
-              // TODO: Navigate to Analytics page
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.payment_outlined),
-            title: const Text('Payments'),
-            onTap: () {
-              // TODO: Navigate to Payments page
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.message_outlined),
-            title: const Text('Messages'),
-            trailing: const CircleAvatar(
-              radius: 10,
-              backgroundColor: Colors.red,
-              child: Text(
-                '3',
-                style: TextStyle(color: Colors.white, fontSize: 10),
-              ),
-            ),
-            onTap: () {
-              // TODO: Navigate to Messages page
-            },
-          ),
-          const Spacer(),
-          const Divider(height: 1),
-          ListTile(
-            leading: const Icon(Icons.logout, color: Colors.red),
-            title: const Text('Logout', style: TextStyle(color: Colors.red)),
-            onTap: () {
-              // --- 2. REPLACE THIS ONTAP ---
-              // First, pop the drawer so it's not open during the transition
-              Navigator.pop(context);
-
-              // Call the provider's logout method to clear all data
-              provider.logout(context);
-
-              // Then, navigate to the LoginPage and remove all other screens
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (_) => const LoginPage()),
-                (route) => false,
-              );
-              // --- END OF FIX ---
-            },
-          ),
-        ],
+        ),
       ),
     );
   }

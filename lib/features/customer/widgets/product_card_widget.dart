@@ -44,18 +44,7 @@ IconData getCategoryIcon(String? category) {
       return Icons.category;
   }
 }
-
-/// Defines the layout for the ProductCard.
 enum ProductCardLayout { grid, list }
-
-/// A fully responsive and visually appealing product card widget.
-///
-/// Features:
-/// - Adapts to different screen sizes and orientations
-/// - Optimized typography with proper scaling
-/// - Beautiful visual hierarchy with shadows and colors
-/// - Smooth animations and interactions
-/// - Enhanced readability and usability
 class ProductCard extends StatefulWidget {
   final CustomerProduct product;
   final ProductCardLayout layoutType;
